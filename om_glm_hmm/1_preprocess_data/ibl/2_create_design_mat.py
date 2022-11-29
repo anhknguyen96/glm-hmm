@@ -3,6 +3,7 @@ import numpy as np
 from sklearn import preprocessing
 import numpy.random as npr
 import os
+from pathlib import Path
 import json
 from collections import defaultdict
 from preprocessing_utils import load_animal_list, load_animal_eid_dict, \
@@ -11,7 +12,7 @@ from preprocessing_utils import load_animal_list, load_animal_eid_dict, \
 npr.seed(65)
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/'
+    data_dir = Path('../../data/ibl/')
     # Create directories for saving data:
     processed_ibl_data_path = data_dir + "data_for_cluster/"
     if not os.path.exists(processed_ibl_data_path):
