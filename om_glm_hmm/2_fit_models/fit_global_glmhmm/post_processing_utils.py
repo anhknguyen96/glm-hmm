@@ -234,11 +234,11 @@ def return_lapse_nll(inpt, y, session, session_fold_lookup_table, fold,
         train_y[train_nonviolation_mask == 1, :],
         train_y[train_nonviolation_mask == 1, :], C)
     if num_lapse_params == 1:
-        lapse_file = results_dir_glm_lapse + '/Lapse_Model/fold_' + str(
-            fold) + '/lapse_model_params_one_param.npz'
+        lapse_file = results_dir_glm_lapse / 'Lapse_Model' ('fold_' + str(
+            fold)) / 'lapse_model_params_one_param.npz'
     elif num_lapse_params == 2:
-        lapse_file = results_dir_glm_lapse + '/Lapse_Model/fold_' + str(
-            fold) + '/lapse_model_params_two_param.npz'
+        lapse_file = results_dir_glm_lapse / 'Lapse_Model' ('fold_' + str(
+            fold)) / 'lapse_model_params_two_param.npz'
     ll_lapse = calculate_lapse_test_loglikelihood(
         lapse_file,
         test_y[test_nonviolation_mask == 1, :],
@@ -265,7 +265,7 @@ def calculate_glm_hmm_test_loglikelihood(glm_hmm_dir, test_datas, test_inputs,
     same for top initializations
     :return:
     """
-    this_file_name = glm_hmm_dir + '/iter_*/glm_hmm_raw_parameters_*.npz'
+    this_file_name = glm_hmm_dir / 'iter_*' / 'glm_hmm_raw_parameters_*.npz'
     raw_files = glob.glob(this_file_name, recursive=True)
     train_ll_vals_across_iters = []
     test_ll_vals_across_iters = []
@@ -343,8 +343,8 @@ def return_glmhmm_nll(inpt, y, session, session_fold_lookup_table, fold, K, D,
             train_inpt, train_y,
             np.expand_dims(train_nonviolation_mask, axis=1),
             this_train_session)
-    dir_to_check = results_dir_glm_hmm + '/GLM_HMM_K_' + str(
-        K) + '/fold_' + str(fold) + '/'
+    dir_to_check = results_dir_glm_hmm / ('GLM_HMM_K_' + str(
+        K)) / ('fold_' + str(fold))
     test_ll_vals_across_iters, init_ordering_by_train, \
     file_ordering_by_train = calculate_glm_hmm_test_loglikelihood(
         dir_to_check, test_datas, test_inputs, test_nonviolation_masks, K, D,
@@ -410,8 +410,8 @@ def get_file_name_for_best_model_fold(cvbt_folds_model, K, overall_dir,
     best_fold = np.where(cvbt_folds_model[loc_best, :] == max(cvbt_folds_model[
                                                               loc_best, :]))[
         0][0]
-    base_path = overall_dir + '/GLM_HMM_K_' + str(K) + '/fold_' + str(
-        best_fold)
+    base_path = overall_dir / ('GLM_HMM_K_' + str(K)) / ('fold_' + str(
+        best_fold))
     key_for_dict = '/GLM_HMM_K_' + str(K) + '/fold_' + str(best_fold)
     best_iter = best_init_cvbt_dict[key_for_dict]
     raw_file = base_path + '/iter_' + str(

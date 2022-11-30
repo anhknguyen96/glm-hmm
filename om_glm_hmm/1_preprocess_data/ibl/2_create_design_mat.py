@@ -12,7 +12,7 @@ from preprocessing_utils import load_animal_list, load_animal_eid_dict, \
 npr.seed(65)
 
 if __name__ == '__main__':
-    data_dir = Path('../../../data/om_data_for_cluster')
+    data_dir = Path('../../data/om/om_data_for_cluster')
     # Create directories for saving data:
     processed_ibl_data_path = data_dir / "data_for_cluster"
     if not os.path.exists(processed_ibl_data_path):

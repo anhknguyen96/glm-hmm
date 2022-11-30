@@ -5,31 +5,32 @@ import autograd.numpy.random as npr
 import os
 from glm_utils import load_session_fold_lookup, load_data, fit_glm, \
     plot_input_vectors, append_zeros
+from pathlib import Path
 
 C = 2  # number of output types/categories
 N_initializations = 10
 npr.seed(65)  # set seed in case of randomization
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/data_for_cluster/'
+    data_dir = Path('../../data/om/data_for_cluster')
     num_folds = 5
 
     # Create directory for results:
-    results_dir = '../../results/ibl_global_fit/'
+    results_dir = Path('../../results/om/om_global_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
     # Fit GLM to all data
-    animal_file = data_dir + 'all_animals_concat.npz'
+    animal_file = data_dir / 'all_animals_concat.npz'
     inpt, y, session = load_data(animal_file)
     session_fold_lookup_table = load_session_fold_lookup(
-        data_dir + 'all_animals_concat_session_fold_lookup.npz')
+        data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
     for fold in range(num_folds):
         # Subset to relevant covariates for covar set of interest:
         labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
-        y = y.astype('int')
-        figure_directory = results_dir + "GLM/fold_" + str(fold) + '/'
+        # y = y.astype('int')
+        figure_directory = results_dir / "GLM" / ("fold_" + str(fold))
         if not os.path.exists(figure_directory):
             os.makedirs(figure_directory)
 
@@ -65,5 +66,5 @@ if __name__ == '__main__':
                                labels_for_plot=labels_for_plot)
             loglikelihood_train_vector.append(loglikelihood_train)
             np.savez(
-                figure_directory + 'variables_of_interest_iter_' + str(iter) +
-                '.npz', loglikelihood_train, recovered_weights)
+                figure_directory / ('variables_of_interest_iter_' + str(iter) +
+                '.npz'), loglikelihood_train, recovered_weights)

@@ -1,5 +1,6 @@
 import sys
 import os
+from pathlib import Path
 import autograd.numpy as np
 from glm_hmm_utils import load_cluster_arr, load_session_fold_lookup, \
     load_data, create_violation_mask, launch_glm_hmm_job
@@ -11,8 +12,8 @@ N_em_iters = 300  # number of EM iterations
 USE_CLUSTER = False
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/data_for_cluster/'
-    results_dir = '../../results/ibl_global_fit/'
+    data_dir = Path('../../data/om/data_for_cluster')
+    results_dir = Path('../../results/om/om_global_fit')
 
     if USE_CLUSTER:
         z = int(sys.argv[1])
@@ -26,15 +27,15 @@ if __name__ == '__main__':
     prior_sigma = 100
 
     # Load external files:
-    cluster_arr_file = data_dir + 'cluster_job_arr.npz'
+    cluster_arr_file = data_dir / 'cluster_job_arr.npz'
     # Load cluster array job parameters:
     cluster_arr = load_cluster_arr(cluster_arr_file)
     [K, fold, iter] = cluster_arr[z]
 
     #  read in data and train/test split
-    animal_file = data_dir + 'all_animals_concat.npz'
+    animal_file = data_dir / 'all_animals_concat.npz'
     session_fold_lookup_table = load_session_fold_lookup(
-        data_dir + 'all_animals_concat_session_fold_lookup.npz')
+        data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
     inpt, y, session = load_data(animal_file)
     #  append a column of ones to inpt to represent the bias covariate:
@@ -50,8 +51,8 @@ if __name__ == '__main__':
         fold) + '/variables_of_interest_iter_0.npz'
 
     # create save directory for this initialization/fold combination:
-    save_directory = results_dir + '/GLM_HMM_K_' + str(
-        K) + '/' + 'fold_' + str(fold) + '/' + '/iter_' + str(iter) + '/'
+    save_directory = results_dir / ('GLM_HMM_K_' + str(
+        K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
 

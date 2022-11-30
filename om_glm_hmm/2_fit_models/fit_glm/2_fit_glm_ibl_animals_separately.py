@@ -2,6 +2,7 @@
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import os
+from pathlib import Path
 from glm_utils import load_session_fold_lookup, load_data, load_animal_list, \
     fit_glm, plot_input_vectors, append_zeros
 
@@ -11,29 +12,29 @@ C = 2  # number of output types/categories
 N_initializations = 10
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
+    data_dir = Path('../../data/om/data_for_cluster/data_by_animal')
     num_folds = 5
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
 
-    results_dir = '../../results/ibl_individual_fit/'
+    results_dir = Path('../../results/om/om_individual_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
     for animal in animal_list:
         # Fit GLM to data from single animal:
-        animal_file = data_dir + animal + '_processed.npz'
+        animal_file = data_dir / (animal + '_processed.npz')
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir + animal + '_session_fold_lookup.npz')
+            data_dir / (animal + '_session_fold_lookup.npz'))
 
         for fold in range(num_folds):
-            this_results_dir = results_dir + animal + '/'
+            this_results_dir = results_dir / animal
 
             # Load data
             inpt, y, session = load_data(animal_file)
             labels_for_plot = ['stim', 'pc', 'wsls', 'bias']
             y = y.astype('int')
 
-            figure_directory = this_results_dir + "GLM/fold_" + str(fold) + '/'
+            figure_directory = this_results_dir / "GLM" / ("fold_" + str(fold))
             if not os.path.exists(figure_directory):
                 os.makedirs(figure_directory)
 
@@ -68,5 +69,5 @@ if __name__ == '__main__':
                                    labels_for_plot=labels_for_plot)
                 loglikelihood_train_vector.append(loglikelihood_train)
                 np.savez(
-                    figure_directory + 'variables_of_interest_iter_' +
-                    str(iter) + '.npz', loglikelihood_train, recovered_weights)
+                    figure_directory / ('variables_of_interest_iter_' +
+                    str(iter) + '.npz'), loglikelihood_train, recovered_weights)

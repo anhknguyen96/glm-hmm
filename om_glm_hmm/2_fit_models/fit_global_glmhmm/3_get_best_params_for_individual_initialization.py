@@ -2,6 +2,7 @@
 # each animal's model
 import json
 import os
+from pathlib import Path
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -12,21 +13,21 @@ from post_processing_utils import load_glmhmm_data, load_cv_arr, \
 
 if __name__ == '__main__':
 
-    data_dir = '../../data/ibl/data_for_cluster/'
-    results_dir = '../../results/ibl_global_fit/'
-    save_directory = data_dir + "best_global_params/"
+    data_dir = Path('../../data/om/om_data_for_cluster')
+    results_dir = Path('../../results/om/om_global_fit')
+    save_directory = data_dir / "best_global_params/"
 
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)
 
     labels_for_plot = ['stim', 'pc', 'wsls', 'bias']
 
-    cv_file = results_dir + "/cvbt_folds_model.npz"
+    cv_file = results_dir / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
     for K in range(2, 6):
         print("K = " + str(K))
-        with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+        with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
             best_init_cvbt_dict = json.load(f)
 
         # Get the file name corresponding to the best initialization for
@@ -49,7 +50,7 @@ if __name__ == '__main__':
                                                 weight_vectors]
 
         np.savez(
-            save_directory + 'best_params_K_' + str(K) + '.npz',
+            save_directory / ('best_params_K_' + str(K) + '.npz'),
             params_for_individual_initialization)
 
         # Plot these too:
@@ -115,11 +116,11 @@ if __name__ == '__main__':
             "#7e1e9c", "#0343df", "#15b01a", "#bf77f6", "#95d0fc",
             "#96f97b"
         ]
-        cv_file = results_dir + "/cvbt_folds_model.npz"
+        cv_file = results_dir / "cvbt_folds_model.npz"
         data_for_plotting_df, loc_best, best_val, glm_lapse_model = \
             create_cv_frame_for_plotting(
             cv_file)
-        cv_file_train = results_dir + "/cvbt_train_folds_model.npz"
+        cv_file_train = results_dir / "cvbt_train_folds_model.npz"
         train_data_for_plotting_df, train_loc_best, train_best_val, \
         train_glm_lapse_model = create_cv_frame_for_plotting(
             cv_file_train)
@@ -168,5 +169,5 @@ if __name__ == '__main__':
         plt.title("Model Comparison", fontsize=40)
         fig.tight_layout()
 
-        fig.savefig(results_dir + 'best_params_cross_validation_K_' +
-                    str(K) + '.png')
+        fig.savefig(results_dir / ('best_params_cross_validation_K_' +
+                    str(K) + '.png'))

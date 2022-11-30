@@ -115,8 +115,8 @@ def launch_glm_hmm_job(inpt, y, session, mask, session_fold_lookup_table, K, D,
                 prior_sigma,
                 global_fit,
                 params_for_initialization,
-                save_title=save_directory + 'glm_hmm_raw_parameters_itr_' +
-                           str(iter) + '.npz')
+                save_title=save_directory / ('glm_hmm_raw_parameters_itr_' +
+                           str(iter) + '.npz'))
 
 
 def fit_glm_hmm(datas, inputs, masks, K, D, M, C, N_em_iters,
