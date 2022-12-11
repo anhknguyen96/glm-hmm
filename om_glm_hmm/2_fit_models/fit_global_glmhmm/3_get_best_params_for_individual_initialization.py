@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     data_dir = Path('../../data/om/om_data_for_cluster')
     results_dir = Path('../../results/om/om_global_fit')
-    save_directory = data_dir / "best_global_params/"
+    save_directory = data_dir / "best_global_params"
 
     if not os.path.exists(save_directory):
         os.makedirs(save_directory)

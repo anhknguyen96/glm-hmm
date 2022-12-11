@@ -16,7 +16,7 @@ if __name__ == '__main__':
                 for sigma in prior_sigma:
                     for alpha in transition_alpha:
                         cluster_job_arr.append([sigma, alpha, K, i, j])
-    np.savez('../../data/ibl/data_for_cluster/data_by_animal/cluster_job_arr'
+    np.savez('../../data/om/om_data_for_cluster/data_by_animal/cluster_job_arr'
              '.npz',
              cluster_job_arr)
     print(len(cluster_job_arr))
