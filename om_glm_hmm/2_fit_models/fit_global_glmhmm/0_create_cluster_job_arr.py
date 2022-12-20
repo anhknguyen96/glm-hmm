@@ -1,3 +1,4 @@
+
 #  In order to facilitate parallelization of jobs, create a job array that
 #  can be used on e.g. a cluster
 import numpy as np

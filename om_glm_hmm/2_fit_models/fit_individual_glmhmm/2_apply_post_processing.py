@@ -4,6 +4,7 @@
 import json
 import sys
 import numpy as np
+from pathlib import Path
 
 sys.path.insert(0, '../fit_global_glmhmm/')
 from glm_hmm_utils import load_animal_list
@@ -17,8 +18,9 @@ if __name__ == '__main__':
     prior_sigma = 2
     transition_alpha = 2
 
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    results_dir = '../../results/ibl_individual_fit/'
+    global_data_dir = Path('../../data/om/om_data_for_cluster')
+    data_dir = global_data_dir / 'data_by_animal'
+    results_dir = Path('../../results/om/om_individual_fit')
 
     # Parameters
     C = 2  # number of output classes
@@ -28,11 +30,11 @@ if __name__ == '__main__':
     num_models = K_max + 2  # model for each latent + 2 lapse
     # models
 
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
     for animal in animal_list:
-        overall_dir = results_dir + animal + '/'
+        overall_dir = results_dir / animal
         # Load data
-        inpt, y, session = load_data(data_dir + animal + '_processed.npz')
+        inpt, y, session = load_data(data_dir / animal + '_processed.npz')
         session_fold_lookup_table = load_session_fold_lookup(
             data_dir + animal + '_session_fold_lookup.npz')
 

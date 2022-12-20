@@ -9,8 +9,8 @@ from post_processing_utils import load_data, load_session_fold_lookup, \
     return_glmhmm_nll, return_lapse_nll
 
 if __name__ == '__main__':
-    data_dir = Path('../../data/ibl/data_for_cluster')
-    results_dir = Path('../../results/ibl_global_fit')
+    data_dir = Path('../../data/om/om_data_for_cluster')
+    results_dir = Path('../../results/om/om_global_fit')
 
     # Load data
     inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')

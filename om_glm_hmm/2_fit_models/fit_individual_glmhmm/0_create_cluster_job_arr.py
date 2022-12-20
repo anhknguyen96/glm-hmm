@@ -7,7 +7,7 @@ transition_alpha = [2]
 K_vals = [2, 3, 4, 5]
 num_folds = 5
 N_initializations = 2
-
+save_file = '/home/anh/Documents/phd/glm-hmm/om_glm_hmm/data/om/om_data_for_cluster/data_by_animal/cluster_job_arr.npz'
 if __name__ == '__main__':
     cluster_job_arr = []
     for K in K_vals:
@@ -16,7 +16,6 @@ if __name__ == '__main__':
                 for sigma in prior_sigma:
                     for alpha in transition_alpha:
                         cluster_job_arr.append([sigma, alpha, K, i, j])
-    np.savez('../../data/om/om_data_for_cluster/data_by_animal/cluster_job_arr'
-             '.npz',
+    np.savez(save_file,
              cluster_job_arr)
     print(len(cluster_job_arr))
