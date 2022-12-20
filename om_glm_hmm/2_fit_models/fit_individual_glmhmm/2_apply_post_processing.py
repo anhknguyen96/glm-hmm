@@ -34,9 +34,9 @@ if __name__ == '__main__':
     for animal in animal_list:
         overall_dir = results_dir / animal
         # Load data
-        inpt, y, session = load_data(data_dir / animal + '_processed.npz')
+        inpt, y, session = load_data(data_dir / (animal + '_processed.npz'))
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir + animal + '_session_fold_lookup.npz')
+            data_dir / (animal + '_session_fold_lookup.npz'))
 
         animal_preferred_model_dict = {}
         models = ["GLM", "Lapse_Model", "GLM_HMM"]
@@ -64,9 +64,8 @@ if __name__ == '__main__':
                 if model == "GLM":
                     # Load parameters and instantiate a new GLM
                     # object with these parameters
-                    glm_weights_file = overall_dir + \
-                                       '/GLM/fold_' + str(
-                        fold) + '/variables_of_interest_iter_0.npz'
+                    glm_weights_file = overall_dir / \
+                                       'GLM' / ('fold_' + str(fold)) / 'variables_of_interest_iter_0.npz'
                     ll_glm = calculate_glm_test_loglikelihood(
                         glm_weights_file,
                         test_y[test_nonviolation_mask == 1, :],
@@ -112,11 +111,11 @@ if __name__ == '__main__':
         print(cvbt_folds_model)
         print(cvbt_train_folds_model)
         json_dump = json.dumps(best_init_cvbt_dict)
-        f = open(overall_dir + "/best_init_cvbt_dict.json", "w")
+        f = open(overall_dir / "best_init_cvbt_dict.json", "w")
         f.write(json_dump)
         f.close()
         # Save cvbt_folds_model as numpy array for easy parsing
         # across all models and folds
-        np.savez(overall_dir + "/cvbt_folds_model.npz", cvbt_folds_model)
-        np.savez(overall_dir + "/cvbt_train_folds_model.npz",
+        np.savez(overall_dir / "cvbt_folds_model.npz", cvbt_folds_model)
+        np.savez(overall_dir / "cvbt_train_folds_model.npz",
                  cvbt_train_folds_model)

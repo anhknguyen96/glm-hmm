@@ -3,7 +3,7 @@
 # be run once to calculate the quantities required to generate both figures
 import json
 import sys
-
+from pathlib import Path
 import numpy as np
 import numpy.random as npr
 
@@ -20,25 +20,26 @@ from plotting_utils import load_glmhmm_data, load_animal_list, load_cv_arr, \
 cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306"]
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    overall_dir = '../../results/ibl_individual_fit/'
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    global_data_dir = Path('../../data/om/om_data_for_cluster')
+    data_dir = global_data_dir / 'data_by_animal'
+    overall_dir = Path('../../results/om/om_individual_fit')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
     sigma_val = 2
     alpha_val = 2
     npr.seed(67)
 
     for animal in animal_list:
         print(animal)
-        results_dir = overall_dir + animal + '/'
+        results_dir = overall_dir / animal
 
-        cv_file = results_dir + "/cvbt_folds_model.npz"
+        cv_file = results_dir / "cvbt_folds_model.npz"
         cvbt_folds_model = load_cv_arr(cv_file)
 
         predictive_acc_mat = []
         num_trials_mat = []
 
         # Also get data for animal:
-        inpt, y, session = load_data(data_dir + animal + '_processed.npz')
+        inpt, y, session = load_data(data_dir / (animal + '_processed.npz'))
 
         # create train test idx
         trial_fold_lookup_table = create_train_test_trials_for_pred_acc(
@@ -47,7 +48,7 @@ if __name__ == '__main__':
         # GLM fit:
         # Load params:
         _, glm_weights = load_glm_vectors(
-            results_dir + '/GLM/fold_0/variables_of_interest_iter_0.npz')
+            results_dir / 'GLM' / 'fold_0' / 'variables_of_interest_iter_0.npz')
         predictive_acc_glm = []
         for fold in range(5):
             # identify the idx for exclusion:
@@ -62,11 +63,11 @@ if __name__ == '__main__':
         # Lapse Model fit:
         for num_lapse_params in [1, 2]:
             if num_lapse_params == 1:
-                lapse_file = results_dir + \
-                             '/Lapse_Model/fold_0/lapse_model_params_one_param.npz'
+                lapse_file = results_dir / \
+                             'Lapse_Model' / 'fold_0' / 'lapse_model_params_one_param.npz'
             elif num_lapse_params == 2:
-                lapse_file = results_dir + \
-                             '/Lapse_Model/fold_0/lapse_model_params_two_param.npz'
+                lapse_file = results_dir / \
+                             'Lapse_Model' / 'fold_0' / 'lapse_model_params_two_param.npz'
             _, lapse_glm_weights, _, lapse_p, _ = load_lapse_params(lapse_file)
             predictive_acc_lapse = []
             for fold in range(5):
@@ -80,7 +81,7 @@ if __name__ == '__main__':
             predictive_acc_mat.append(predictive_acc_lapse)
 
         for K in range(2, 6):
-            with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+            with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
                 best_init_cvbt_dict = json.load(f)
 
                 # Get the file name corresponding to the best initialization
@@ -118,7 +119,7 @@ if __name__ == '__main__':
                     predictive_acc_this_K.append(predictive_acc)
                 predictive_acc_mat.append(predictive_acc_this_K)
         predictive_acc_mat = np.array(predictive_acc_mat)
-        np.savez(results_dir + "predictive_accuracy_mat.npz",
+        np.savez(results_dir / "predictive_accuracy_mat.npz",
                  np.array(predictive_acc_mat))
-        np.savez(results_dir + "correct_incorrect_mat.npz",
+        np.savez(results_dir / "correct_incorrect_mat.npz",
                  np.array(predictive_acc_mat * num_trials_mat), num_trials_mat)

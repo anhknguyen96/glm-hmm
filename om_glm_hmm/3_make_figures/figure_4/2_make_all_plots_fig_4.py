@@ -2,6 +2,7 @@
 import json
 import sys
 import os
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,18 +17,18 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
 
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    overall_dir = '../../results/ibl_individual_fit/'
-    figure_dir = '../../figures/figure_4/'
+    data_dir = Path('../../data/om/om_data_for_cluster/data_by_animal')
+    overall_dir = Path('../../results/om/om_individual_fit')
+    figure_dir = Path('../../figures/om/figure_4')
     if not os.path.exists(figure_dir):
         os.makedirs(figure_dir)
 
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
 
     K = 3
     D, M, C = 1, 3, 2
 
-    global_directory = '../../results/ibl_global_fit/'
+    global_directory = Path('../../results/om/om_global_fit/')
     global_weights = get_global_weights(global_directory, K)
 
     fig = plt.figure(figsize=(6, 6))
@@ -43,8 +44,8 @@ if __name__ == '__main__':
     cols = ['#999999', '#984ea3', '#e41a1c', '#dede00']
     across_animals = []
     for animal in animal_list:
-        results_dir = overall_dir + animal + '/'
-        cv_arr = load_cv_arr(results_dir + "/cvbt_folds_model.npz")
+        results_dir = overall_dir / animal
+        cv_arr = load_cv_arr(results_dir / "cvbt_folds_model.npz")
         cv_arr_for_plotting = cv_arr[[0, 2, 3, 4, 5, 6], :]
         mean_cvbt = np.mean(cv_arr_for_plotting, axis=1)
         across_animals.append(mean_cvbt - mean_cvbt[0])
@@ -105,10 +106,10 @@ if __name__ == '__main__':
     mean_across_animals = []
     num_trials_all_animals = 0
     for z, animal in enumerate(animal_list):
-        results_dir = overall_dir + animal + '/'
+        results_dir = overall_dir / animal
 
         correct_mat, num_trials = load_correct_incorrect_mat(
-            results_dir + "correct_incorrect_mat.npz")
+            results_dir / "correct_incorrect_mat.npz")
         num_trials_all_animals += np.sum(num_trials)
         if z == 0:
             trials_correctly_predicted_all_folds = np.sum(correct_mat, axis=1)
@@ -117,7 +118,7 @@ if __name__ == '__main__':
                 trials_correctly_predicted_all_folds + np.sum(
                 correct_mat, axis=1)
 
-        pred_acc_arr = load_cv_arr(results_dir + "predictive_accuracy_mat.npz")
+        pred_acc_arr = load_cv_arr(results_dir / "predictive_accuracy_mat.npz")
         pred_acc_arr_for_plotting = pred_acc_arr[[0, 2, 3, 4, 5, 6], :]
 
         mean_acc = np.mean(pred_acc_arr_for_plotting, axis=1)
@@ -165,7 +166,7 @@ if __name__ == '__main__':
 
     # ================ SIMPLEX =======================
     plt.subplot(3, 3, 3)
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
     overall_frac_state_1 = []
     overall_frac_state_2 = []
     overall_frac_state_3 = []
@@ -175,13 +176,13 @@ if __name__ == '__main__':
     num_sessions_single_state = 0
     num_sessions = 0
     for animal in animal_list:
-        results_dir = overall_dir + animal + '/'
+        results_dir = overall_dir / animal
 
-        cv_file = results_dir + "/cvbt_folds_model.npz"
+        cv_file = results_dir / "cvbt_folds_model.npz"
         cvbt_folds_model = load_cv_arr(cv_file)
 
         K = 3
-        with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+        with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
             best_init_cvbt_dict = json.load(f)
 
         # Get the file name corresponding to the best initialization for
@@ -197,7 +198,7 @@ if __name__ == '__main__':
         init_state_dist = hmm_params[0][0]
 
         # Also get data for animal:
-        inpt, y, session = load_data(data_dir + animal + '_processed.npz')
+        inpt, y, session = load_data(data_dir / (animal + '_processed.npz'))
 
         # Create mask:
         # Identify violations for exclusion:
@@ -307,12 +308,12 @@ if __name__ == '__main__':
     for k in range(K):
         plt.subplot(3, 3, k + 4)
         for animal in animal_list:
-            results_dir = overall_dir + animal + '/'
+            results_dir = overall_dir / animal
 
-            cv_file = results_dir + "/cvbt_folds_model.npz"
+            cv_file = results_dir / "cvbt_folds_model.npz"
             cvbt_folds_model = load_cv_arr(cv_file)
 
-            with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+            with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
                 best_init_cvbt_dict = json.load(f)
 
             # Get the file name corresponding to the best initialization for
@@ -392,12 +393,12 @@ if __name__ == '__main__':
     for k in range(K):
         plt.subplot(3, 3, k + 7)
         for z, animal in enumerate(animal_list):
-            results_dir = overall_dir + animal + '/'
+            results_dir = overall_dir / animal
 
-            cv_file = results_dir + "/cvbt_folds_model.npz"
+            cv_file = results_dir / "cvbt_folds_model.npz"
             cvbt_folds_model = load_cv_arr(cv_file)
 
-            with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+            with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
                 best_init_cvbt_dict = json.load(f)
 
             # Get the file name corresponding to the best initialization for
@@ -448,4 +449,4 @@ if __name__ == '__main__':
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
 
-    fig.savefig(figure_dir + 'fig4.pdf')
+    fig.savefig(figure_dir / 'fig4.pdf')

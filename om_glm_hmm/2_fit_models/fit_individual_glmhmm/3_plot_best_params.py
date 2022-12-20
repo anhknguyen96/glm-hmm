@@ -2,6 +2,7 @@
 import json
 import sys
 import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,28 +15,31 @@ from post_processing_utils import load_data, load_glmhmm_data, load_cv_arr, \
     partition_data_by_session, create_violation_mask, get_marginal_posterior
 
 if __name__ == '__main__':
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
+
     prior_sigma = 2
     transition_alpha = 2
-    results_dir = '../../results/ibl_individual_fit/'
+
+    global_data_dir = Path('../../data/om/om_data_for_cluster')
+    data_dir = global_data_dir / 'data_by_animal'
+    results_dir = Path('../../results/om/om_individual_fit')
 
     labels_for_plot = ['stim', 'pc', 'wsls', 'bias']
 
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
     for animal in animal_list:
         print(animal)
-        results_this_animal_dir = results_dir + animal + '/'
+        results_this_animal_dir = results_dir / animal
 
-        cv_file = results_this_animal_dir + "/cvbt_folds_model.npz"
+        cv_file = results_this_animal_dir / "cvbt_folds_model.npz"
         cvbt_folds_model = load_cv_arr(cv_file)
 
         for K in range(2, 6):
-            save_dir = results_dir + 'params_all_animals/K_' + str(K) + '/'
+            save_dir = results_dir / 'params_all_animals' / ('K_' + str(K))
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
 
-            with open(results_this_animal_dir +
-                      "/best_init_cvbt_dict.json", 'r') as f:
+            with open(results_this_animal_dir /
+                      "best_init_cvbt_dict.json", 'r') as f:
                best_init_cvbt_dict = json.load(f)
 
             # Get the file name corresponding to the best
@@ -111,11 +115,11 @@ if __name__ == '__main__':
                 "#7e1e9c", "#0343df", "#15b01a", "#bf77f6", "#95d0fc",
                 "#96f97b"
             ]
-            cv_file = results_this_animal_dir + "/cvbt_folds_model.npz"
+            cv_file = results_this_animal_dir / "cvbt_folds_model.npz"
             data_for_plotting_df, loc_best, best_val, \
             glm_lapse_model = create_cv_frame_for_plotting(
                 cv_file)
-            cv_file_train = results_this_animal_dir + "/cvbt_train_folds_model.npz"
+            cv_file_train = results_this_animal_dir / "cvbt_train_folds_model.npz"
             train_data_for_plotting_df, train_loc_best, \
             train_best_val, train_glm_lapse_model = \
                 create_cv_frame_for_plotting(
@@ -165,7 +169,7 @@ if __name__ == '__main__':
 
             plt.subplot(1, 4, 4)
             # get state occupancies:
-            inpt, y, session = load_data(data_dir + animal + '_processed.npz')
+            inpt, y, session = load_data(data_dir / (animal + '_processed.npz'))
             inpt = np.hstack((inpt, np.ones((len(inpt), 1))))
             # Identify violations for exclusion:
             violation_idx = np.where(y == -1)[0]
@@ -186,4 +190,4 @@ if __name__ == '__main__':
             plt.title("State occuupancies", fontsize=40)
 
             fig.suptitle(animal, fontsize=40)
-            fig.savefig(save_dir + animal + '.png')
+            fig.savefig(save_dir / (animal + '.png'))

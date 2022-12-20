@@ -401,10 +401,10 @@ def check_all_indices_present(permutation, K):
 
 
 def get_global_weights(global_directory, K):
-    cv_file = global_directory + "/cvbt_folds_model.npz"
+    cv_file = global_directory / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
-    with open(global_directory + "/best_init_cvbt_dict.json", 'r') as f:
+    with open(global_directory / "best_init_cvbt_dict.json", 'r') as f:
         best_init_cvbt_dict = json.load(f)
 
     raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
@@ -417,10 +417,10 @@ def get_global_weights(global_directory, K):
 
 
 def get_global_trans_mat(global_directory, K):
-    cv_file = global_directory + "/cvbt_folds_model.npz"
+    cv_file = global_directory / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
-    with open(global_directory + "/best_init_cvbt_dict.json", 'r') as f:
+    with open(global_directory / "best_init_cvbt_dict.json", 'r') as f:
         best_init_cvbt_dict = json.load(f)
 
     # Get the file name corresponding to the best initialization for given K
