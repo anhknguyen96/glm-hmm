@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     data_dir = global_data_dir / 'data_by_animal'
-    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_individual_fit')
+    results_dir = root_result_dir / root_folder_name / (root_folder_name +'_individual_fit')
 
     prior_sigma = 2
     transition_alpha = 2

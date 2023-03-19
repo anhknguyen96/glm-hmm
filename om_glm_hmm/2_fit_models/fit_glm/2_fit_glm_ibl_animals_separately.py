@@ -25,7 +25,7 @@ if __name__ == '__main__':
     num_folds = 5
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
 
-    results_dir = root_data_dir / root_folder_name / (root_folder_name + '_individual_fit')
+    results_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 

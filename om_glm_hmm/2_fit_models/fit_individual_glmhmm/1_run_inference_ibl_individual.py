@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     data_dir = global_data_dir / 'data_by_animal'
-    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_individual_fit')
+    results_dir = root_result_dir / root_folder_name / (root_folder_name +'_individual_fit')
 
     # global_data_dir = Path('../../data/om/om_data_for_cluster')
     # results_dir = Path('../../results/om/om_individual_fit')

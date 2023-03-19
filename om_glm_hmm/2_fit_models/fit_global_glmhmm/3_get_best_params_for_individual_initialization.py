@@ -23,7 +23,7 @@ if __name__ == '__main__':
     root_result_dir = Path('../../results')
 
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
-    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_global_fit')
+    results_dir = root_result_dir / root_folder_name / (root_folder_name +'_global_fit')
 
     save_directory = data_dir / "best_global_params"
 

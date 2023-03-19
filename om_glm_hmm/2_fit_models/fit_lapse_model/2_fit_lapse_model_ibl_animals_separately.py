@@ -20,9 +20,9 @@ if __name__ == '__main__':
     root_result_dir = Path('../../results')
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
 
-    num_lapse_params = 1
+    num_lapse_params = 2
 
-    results_dir = root_data_dir / root_folder_name / (root_folder_name + '_individual_fit')
+    results_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
 
     num_folds = 5
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
@@ -30,9 +30,9 @@ if __name__ == '__main__':
     # Fit GLM to all data
     for animal in animal_list:
         # Fit GLM to all data
-        animal_file = data_dir / animal / '_processed.npz'
+        animal_file = data_dir / (animal + '_processed.npz')
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir / animal / '_session_fold_lookup.npz')
+            data_dir / (animal + '_session_fold_lookup.npz'))
 
         for fold in range(num_folds):
             overall_dir = results_dir / animal

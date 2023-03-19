@@ -21,18 +21,18 @@ if __name__ == '__main__':
 
     global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     data_dir = global_data_dir / 'data_by_animal'
-    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_global_fit')
+    results_dir = root_result_dir / root_folder_name / (root_folder_name +'_global_fit')
 
     # data_dir = '../../data/ibl/data_for_cluster/'
     # results_dir = '../../results/ibl_global_fit/'
 
-    num_lapse_params = 1
+    num_lapse_params = 2
     num_folds = 5
 
     # Fit GLM to all data
-    animal_file = data_dir /'all_animals_concat.npz'
+    animal_file = global_data_dir /'all_animals_concat.npz'
     session_fold_lookup_table = load_session_fold_lookup(
-        data_dir / 'all_animals_concat_session_fold_lookup.npz')
+        global_data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
     for fold in range(num_folds):
         inpt, y, session = load_data(animal_file)
