@@ -37,8 +37,8 @@ np.savez(data_dir / 'partially_processed'/ 'animal_list.npz', animal_list)
 #         animal_list = np.delete(animal_list,
 
 
-for mouse in animal_list:
-    om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == mouse].copy().reset_index()
+for mouse_id in range(len(animal_list)):
+    om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == animal_list[mouse_id]].copy().reset_index()
     T = len(om_tmp)
     design_mat = np.zeros((T, 3))
     design_mat[:, 0] = np.array(om_tmp.z_freq)
@@ -46,14 +46,17 @@ for mouse in animal_list:
     design_mat[:, 2] = np.array(om_tmp.wslw)
     y = np.expand_dims(np.array(om_tmp.lick_side_freq), axis=1)
     session = np.array(om_tmp.session_identifier)
-    np.savez(data_dir / 'data_by_animal' / (mouse + '_processed.npz'),
+    np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_processed.npz'),
              design_mat, y,
              session)
     animal_session_fold_lookup = create_train_test_sessions(session,
                                                             5)
-    master_session_fold_lookup_table = np.vstack(
+    if mouse_id == 0:
+        master_session_fold_lookup_table = animal_session_fold_lookup
+    else:
+        master_session_fold_lookup_table = np.vstack(
         (master_session_fold_lookup_table, animal_session_fold_lookup))
-    np.savez(data_dir / 'data_by_animal' / (mouse +
+    np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] +
              "_session_fold_lookup" +
              ".npz"),
              animal_session_fold_lookup)
