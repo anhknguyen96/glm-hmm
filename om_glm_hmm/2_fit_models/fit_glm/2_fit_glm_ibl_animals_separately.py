@@ -12,11 +12,20 @@ C = 2  # number of output types/categories
 N_initializations = 10
 
 if __name__ == '__main__':
-    data_dir = Path('../../data/om/data_for_cluster/data_by_animal')
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
+
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
+
     num_folds = 5
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
 
-    results_dir = Path('../../results/om/om_individual_fit')
+    results_dir = root_data_dir / root_folder_name / (root_folder_name + '_individual_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 

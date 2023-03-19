@@ -2,6 +2,7 @@
 # each animal's model
 import json
 import os
+import sys
 from pathlib import Path
 import numpy as np
 import seaborn as sns
@@ -12,9 +13,18 @@ from post_processing_utils import load_glmhmm_data, load_cv_arr, \
 
 
 if __name__ == '__main__':
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
 
-    data_dir = Path('../../data/om/om_data_for_cluster')
-    results_dir = Path('../../results/om/om_global_fit')
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
+    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_global_fit')
+
     save_directory = data_dir / "best_global_params"
 
     if not os.path.exists(save_directory):

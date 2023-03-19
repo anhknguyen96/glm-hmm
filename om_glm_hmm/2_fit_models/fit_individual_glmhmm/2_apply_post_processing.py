@@ -14,13 +14,21 @@ from post_processing_utils import load_data, load_session_fold_lookup, \
     return_glmhmm_nll, return_lapse_nll
 
 if __name__ == '__main__':
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
+
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+
+    global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
+    data_dir = global_data_dir / 'data_by_animal'
+    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_individual_fit')
 
     prior_sigma = 2
     transition_alpha = 2
-
-    global_data_dir = Path('../../data/om/om_data_for_cluster')
-    data_dir = global_data_dir / 'data_by_animal'
-    results_dir = Path('../../results/om/om_individual_fit')
 
     # Parameters
     C = 2  # number of output classes

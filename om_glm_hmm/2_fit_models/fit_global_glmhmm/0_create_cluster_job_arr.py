@@ -6,7 +6,11 @@ from pathlib import Path
 K_vals = [2, 3, 4, 5]
 num_folds = 5
 N_initializations = 20
-data_dir = Path('../../data/om/data_for_cluster')
+root_folder_name = 'om_choice_batch3'
+root_data_dir = Path('../../data')
+root_result_dir = Path('../../results')
+
+data_dir = root_data_dir / root_folder_name / (root_folder_name + '_data_for_cluster')
 
 if __name__ == '__main__':
     cluster_job_arr = []

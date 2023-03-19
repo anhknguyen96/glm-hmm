@@ -3,6 +3,7 @@
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import os
+import sys
 from glm_utils import load_session_fold_lookup, load_data, fit_glm, \
     plot_input_vectors, append_zeros
 from pathlib import Path
@@ -12,11 +13,21 @@ N_initializations = 10
 npr.seed(65)  # set seed in case of randomization
 
 if __name__ == '__main__':
-    data_dir = Path('../../data/om/data_for_cluster')
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
+
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+
+
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     num_folds = 5
 
     # Create directory for results:
-    results_dir = Path('../../results/om/om_global_fit')
+    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_global_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 

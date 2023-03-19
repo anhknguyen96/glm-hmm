@@ -12,8 +12,18 @@ N_em_iters = 300  # number of EM iterations
 USE_CLUSTER = False
 
 if __name__ == '__main__':
-    data_dir = Path('../../data/om/om_data_for_cluster')
-    results_dir = Path('../../results/om/om_global_fit')
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
+
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
+    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_global_fit')
+
     if data_dir.exists() and results_dir.exists():
         pass
     else:

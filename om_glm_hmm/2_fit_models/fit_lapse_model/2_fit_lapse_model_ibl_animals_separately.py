@@ -1,6 +1,6 @@
 # Fit lapse model to each animal's data separately
 import os
-
+from pathlib import Path
 import autograd.numpy as np
 import matplotlib.pyplot as plt
 from LapseModel import lapse_model
@@ -10,24 +10,32 @@ from lapse_utils import load_session_fold_lookup, load_data, \
 np.random.seed(65)
 
 if __name__ == '__main__':
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
+
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
 
     num_lapse_params = 1
 
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    results_dir = '../../results/ibl_individual_fit/'
+    results_dir = root_data_dir / root_folder_name / (root_folder_name + '_individual_fit')
 
     num_folds = 5
-    animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
 
     # Fit GLM to all data
     for animal in animal_list:
         # Fit GLM to all data
-        animal_file = data_dir + animal + '_processed.npz'
+        animal_file = data_dir / animal / '_processed.npz'
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir + animal + '_session_fold_lookup.npz')
+            data_dir / animal / '_session_fold_lookup.npz')
 
         for fold in range(num_folds):
-            overall_dir = results_dir + '/' + animal + '/'
+            overall_dir = results_dir / animal
 
             inpt, y, session = load_data(animal_file)
             y = y.astype('int')
@@ -47,8 +55,7 @@ if __name__ == '__main__':
             M = this_inpt.shape[1]
             loglikelihood_train_vector = []
 
-            figure_directory = overall_dir + "Lapse_Model/fold_" + str(
-                fold) + '/'
+            figure_directory = overall_dir / 'Lapse_Model' /('fold_' + str(fold))
             if not os.path.exists(figure_directory):
                 os.makedirs(figure_directory)
 
@@ -127,7 +134,7 @@ if __name__ == '__main__':
                     this_lapse = these_pars[0][1][0]
                     lapse_std.append(this_sd[-1])
                     if j == 0:
-                        np.savez(figure_directory +
+                        np.savez(figure_directory /
                                  'lapse_model_params_one_param.npz',
                                  loglikelihood=this_ll,
                                  glm_weights=glm_weights,
@@ -139,7 +146,7 @@ if __name__ == '__main__':
                     this_lapse = [these_pars[0][1][0], these_pars[0][1][1]]
                     lapse_std.append([this_sd[-2], this_sd[-1]])
                     if j == 0:
-                        np.savez(figure_directory +
+                        np.savez(figure_directory /
                                  'lapse_model_params_two_param.npz',
                                  loglikelihood=this_ll,
                                  glm_weights=glm_weights,
@@ -194,7 +201,7 @@ if __name__ == '__main__':
                     "Logistic Regression with Lapse Parameter: Top 3 "
                     "Initializations \n" + str(animal),
                     fontsize=15)
-                fig.savefig(figure_directory + 'lapse_model_fit_1_param.png')
+                fig.savefig(figure_directory / 'lapse_model_fit_1_param.png')
 
             else:
                 lapse_params_for_plotting = np.array(lapse_params_for_plotting)
@@ -237,10 +244,10 @@ if __name__ == '__main__':
                     "Logistic Regression with Lapse Parameter: Top 3 "
                     "Initializations \n " + str(animal),
                     fontsize=15)
-                fig.savefig(figure_directory + 'lapse_model_fit_1_param.png')
+                fig.savefig(figure_directory / 'lapse_model_fit_1_param.png')
             else:
                 fig.suptitle(
                     "Logistic Regression with Lapse Parameter: Top 3 "
                     "Initializations \n " + str(animal),
                     fontsize=15)
-                fig.savefig(figure_directory + 'lapse_model_fit_2_param.png')
+                fig.savefig(figure_directory / 'lapse_model_fit_2_param.png')

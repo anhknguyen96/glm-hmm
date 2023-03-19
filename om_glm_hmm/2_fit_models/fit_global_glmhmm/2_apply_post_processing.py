@@ -1,6 +1,7 @@
 # Create a matrix of size num_models x num_folds containing
 # normalized loglikelihood for both train and test splits
 import json
+import sys
 from pathlib import Path
 import numpy as np
 from post_processing_utils import load_data, load_session_fold_lookup, \
@@ -9,8 +10,18 @@ from post_processing_utils import load_data, load_session_fold_lookup, \
     return_glmhmm_nll, return_lapse_nll
 
 if __name__ == '__main__':
-    data_dir = Path('../../data/om/om_data_for_cluster')
-    results_dir = Path('../../results/om/om_global_fit')
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_name = str(sys.argv[1])
+
+    root_folder_name = 'om_choice_batch3'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+
+
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
+    results_dir = root_data_dir / root_folder_name / (root_folder_name +'_global_fit')
 
     # Load data
     inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
