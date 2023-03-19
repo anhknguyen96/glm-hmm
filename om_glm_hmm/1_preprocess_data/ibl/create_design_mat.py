@@ -29,8 +29,14 @@ f.write(json)
 f.close()
 np.savez(data_dir / 'partially_processed'/ 'animal_list.npz', animal_list)
 
+# # Require that each animal has at least 30 sessions (=2700 trials) of data:
+# req_num_sessions = 30  # 30*90 = 2700
+# for animal in animal_list:
+#     num_sessions = len(animal_eid_dict[animal])
+#     if num_sessions < req_num_sessions:
+#         animal_list = np.delete(animal_list,
 
-# om_cleaned = pd.read_csv(file_path)
+
 for mouse in animal_list:
     om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == mouse].copy().reset_index()
     T = len(om_tmp)
@@ -45,9 +51,32 @@ for mouse in animal_list:
              session)
     animal_session_fold_lookup = create_train_test_sessions(session,
                                                             5)
+    master_session_fold_lookup_table = np.vstack(
+        (master_session_fold_lookup_table, animal_session_fold_lookup))
     np.savez(data_dir / 'data_by_animal' / (mouse +
              "_session_fold_lookup" +
              ".npz"),
              animal_session_fold_lookup)
 
+T_all = len(om_cleaned)
+design_mat = np.zeros((T_all, 3))
+design_mat[:, 0] = np.array(om_cleaned.z_freq)
+design_mat[:, 1] = np.array(om_cleaned.prev_choice)
+design_mat[:, 2] = np.array(om_cleaned.wslw)
+y = np.expand_dims(np.array(om_cleaned.lick_side_freq), axis=1)
+session = np.array(om_cleaned.session_identifier)
+np.savez(data_dir / 'all_animals_concat.npz',
+             design_mat,
+             y, session)
+np.savez(
+    data_dir / 'all_animals_concat_session_fold_lookup.npz',
+    master_session_fold_lookup_table)
 
+# this is for when the animal minmum data condition is considered
+np.savez(data_dir / 'data_by_animal' / 'animal_list.npz',
+         animal_list)
+# final_animal_eid_dict = animal_eid_dict
+# json = json.dumps(final_animal_eid_dict)
+# f = open(data_dir / "final_animal_eid_dict.json", "w")
+# f.write(json)
+# f.close()
