@@ -2,7 +2,8 @@
 # three states
 import json
 import sys
-
+import os
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -13,18 +14,28 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     create_violation_mask, get_marginal_posterior
 
 if __name__ == '__main__':
-    animal = "CSHL_008"
-    K = 3
+    animal = "1.0"
+    K = 4
+    root_folder_name = 'om'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    figure_dir = Path('../../figures/figure_2')
+    if not os.path.exists(figure_dir):
+        os.makedirs(figure_dir)
 
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    results_dir = '../../results/ibl_individual_fit/' + animal + '/'
-    figure_dir = '../../figures/figure_2/'
+    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
+    results_dir = root_result_dir / root_folder_name / (root_folder_name +'_individual_fit') / animal
+
+    #
+    # data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
+    # results_dir = '../../results/ibl_individual_fit/' + animal + '/'
+    # figure_dir = '../../figures/figure_2/'
 
     accuracies_to_plot = []
 
-    inpt, old_y, session = load_data(data_dir + animal + '_processed.npz')
-    unnormalized_inpt, _, _ = load_data(data_dir + animal +
-                                        '_unnormalized.npz')
+    inpt, old_y, session = load_data(data_dir / (animal + '_processed.npz'))
+    unnormalized_inpt, _, _ = load_data(data_dir / (animal +
+                                        '_unnormalized.npz'))
     y = np.copy(old_y)  # use this for calculating accuracy; use old_y for
     # calculating posterior probs
 
@@ -41,15 +52,15 @@ if __name__ == '__main__':
 
     # Get accuracy of animal overall:
     not_zero_loc = np.where(unnormalized_inpt[:, 0] != 0)[0]
-    correct_ans = (np.sign(unnormalized_inpt[not_zero_loc, 0]) + 1) / 2
+    correct_ans = (-np.sign(unnormalized_inpt[not_zero_loc, 0]) + 1) / 2
     acc = np.sum(y[not_zero_loc, 0] == correct_ans) / len(correct_ans)
     accuracies_to_plot.append(acc)
 
     # get accuracies in each of the three states:
-    cv_file = results_dir + "/cvbt_folds_model.npz"
+    cv_file = results_dir / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
-    with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+    with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
         best_init_cvbt_dict = json.load(f)
 
     # Get the file name corresponding to the best initialization for given K
@@ -70,7 +81,7 @@ if __name__ == '__main__':
             inpt[idx_of_interest, :], unnormalized_inpt[idx_of_interest, :], \
             y[idx_of_interest, :]
         not_zero_loc = np.where(unnormalized_inpt_this_state[:, 0] != 0)[0]
-        correct_ans = (np.sign(unnormalized_inpt_this_state[not_zero_loc, 0]) +
+        correct_ans = (-np.sign(unnormalized_inpt_this_state[not_zero_loc, 0]) +
                        1) / 2
         acc = np.sum(y_this_state[not_zero_loc,
                                   0] == correct_ans) / len(correct_ans)
@@ -78,7 +89,7 @@ if __name__ == '__main__':
 
     cols = [
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-        '#999999', '#e41a1c', '#dede00'
+        '#999999', '#e41a1c', '#dede00', "#3498db"
     ]
 
     fig = plt.figure(figsize=(1.3, 1.7))
@@ -90,10 +101,10 @@ if __name__ == '__main__':
             col = cols[z - 1]
         plt.bar(z, acc*100, width=0.8, color=col)
     plt.ylim((50, 100))
-    plt.xticks([0, 1, 2, 3], ['All', '1', '2', '3'], fontsize=10)
-    plt.yticks([50, 75, 100], fontsize=10)
+    plt.xticks([0, 1, 2, 3, 4], ['All', '1', '2', '3', '4'], fontsize=10)
+    plt.yticks([50, 75, 100, 125], fontsize=10)
     plt.xlabel('state', fontsize=10)
     plt.ylabel('accuracy (%)', fontsize=10, labelpad=-0.5)
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(figure_dir + 'fig2f.pdf')
+    fig.savefig(figure_dir / 'fig2f.pdf')
