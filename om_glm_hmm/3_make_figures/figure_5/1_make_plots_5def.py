@@ -4,7 +4,8 @@
 
 import json
 import sys
-
+import os
+from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,15 +20,29 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, \
     get_prob_right
 
 if __name__ == '__main__':
-    figure_dir = '../../figures/figure_5/'
 
-    outer_data_dir = '../../data/odoemene/data_for_cluster/'
-    overall_dir = '../../results/odoemene_individual_fit/'
-    global_results_dir = '../../results/odoemene_global_fit/'
-    data_dir = outer_data_dir + 'data_by_animal/'
-    animal_list = animal_list = load_animal_list(data_dir + 'animal_list.npz')
+    root_folder_name = 'om'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    figure_dir = Path('../../figures/figure_5')
+    if not os.path.exists(figure_dir):
+        os.makedirs(figure_dir)
 
-    cols = [
+    outer_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
+    overall_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
+    global_results_dir = root_result_dir / root_folder_name / (root_folder_name + '_global_fit')
+    data_dir = outer_data_dir / 'data_by_animal'
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
+    #
+    # figure_dir = '../../figures/figure_5/'
+    #
+    # outer_data_dir = '../../data/odoemene/data_for_cluster/'
+    # overall_dir = '../../results/odoemene_individual_fit/'
+    # global_results_dir = '../../results/odoemene_global_fit/'
+    # data_dir = outer_data_dir + 'data_by_animal/'
+    # animal_list = animal_list = load_animal_list(data_dir + 'animal_list.npz')
+
+    cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
         '#999999', '#e41a1c', '#dede00'
     ]
@@ -47,12 +62,12 @@ if __name__ == '__main__':
         plt.subplot(3, 4, k + 1)
 
         for animal in animal_list:
-            results_dir = overall_dir + animal + '/'
+            results_dir = overall_dir / animal
 
-            cv_file = results_dir + "/cvbt_folds_model.npz"
+            cv_file = results_dir / "cvbt_folds_model.npz"
             cvbt_folds_model = load_cv_arr(cv_file)
 
-            with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+            with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
                 best_init_cvbt_dict = json.load(f)
 
             # Get the file name corresponding to the best initialization for
@@ -63,7 +78,7 @@ if __name__ == '__main__':
             weight_vectors = -hmm_params[2]
 
             plt.plot(range(M + 1),
-                     weight_vectors[k][0][[0, 3, 1, 2]],
+                     weight_vectors[k][0][[0, 1, 2, 3]],
                      '-o',
                      color=cols[k],
                      lw=1,
@@ -71,12 +86,12 @@ if __name__ == '__main__':
                      markersize=3)
         if k == 0:
             plt.yticks([-2, 0, 2, 4], fontsize=10)
-            plt.xticks([0, 1, 2, 3], ['stim.', 'bias', 'p.c.', 'w.s.l.s.'],
+            plt.xticks([0, 1, 2, 3], ['stim.', 'p.c.', 'w.s.l.s.', 'bias'],
                        fontsize=10,
                        rotation=20)
             plt.ylabel("GLM weight", fontsize=10)
         else:
-            plt.yticks([-2, 0, 2, 4], ['', '', '', ''])
+            plt.yticks([-4, -2, 0, 2, 4], ['','', '', '', ''])
             plt.xticks([0, 1, 2, 3], ['', '', '', ''])
         plt.title("state " + str(k + 1), fontsize=10, color=cols[k])
         plt.plot(range(M + 1),
@@ -100,11 +115,11 @@ if __name__ == '__main__':
                        loc='upper left')
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
-        plt.ylim((-2, 4))
+        plt.ylim((-4, 4))
 
     # ================= GLM CURVES ====================
-    inpt, old_y, session = load_data(outer_data_dir + 'all_animals_concat.npz')
-    unnormalized_inpt, _, _ = load_data(outer_data_dir +
+    inpt, old_y, session = load_data(outer_data_dir / 'all_animals_concat.npz')
+    unnormalized_inpt, _, _ = load_data(outer_data_dir /
                                         'all_animals_concat_unnormalized.npz')
     y = np.copy(old_y)
 
@@ -119,10 +134,10 @@ if __name__ == '__main__':
     covar_set = 2
     # Get posterior probs:
     results_dir = global_results_dir
-    cv_file = results_dir + "/cvbt_folds_model.npz"
+    cv_file = results_dir / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
-    with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+    with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
         best_init_cvbt_dict = json.load(f)
 
     # Get the file name corresponding to the best initialization for given K
@@ -140,83 +155,83 @@ if __name__ == '__main__':
     _, counts = np.unique(np.argmax(posterior_probs, axis=1),
                           return_counts=True)
 
-    cols = [
+    cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
         '#999999', '#e41a1c', '#dede00'
     ]
     labels = ["'engaged'", "'biased left'", "'biased right'", "'win stay'"]
-    for k in range(K):
-        # Get index of trials where posterior_probs > 0.9 and not violation
-        idx_of_interest = \
-            np.where((posterior_probs[:, k] >= 0.9) & (mask == 1))[0]
-        inpt_this_state, unnormalized_inpt_this_state, y_this_state = inpt[
-                                                                      idx_of_interest,
-                                                                      :], \
-                                                                      unnormalized_inpt[
-                                                                      idx_of_interest,
-                                                                      :], \
-                                                                      old_y[
-                                                                      idx_of_interest,
-                                                                      :]
-        uniq_contrast_vals = np.unique(unnormalized_inpt_this_state[:, 0])
-        plt.subplot(3, 4, k + 5)
-        # Get accuracy
-        not_zero_loc = np.where(unnormalized_inpt_this_state[:, 0] != 0)[0]
-        correct_ans = (np.sign(unnormalized_inpt_this_state[not_zero_loc, 0]) +
-                       1) / 2
-        acc = np.sum(y_this_state[not_zero_loc,
-                                  0] == correct_ans) / len(correct_ans)
-        print("accuracy in state = " + str(acc))
+    # for k in range(K):
+    #     # Get index of trials where posterior_probs > 0.9 and not violation
+    #     idx_of_interest = \
+    #         np.where((posterior_probs[:, k] >= 0.9) & (mask == 1))[0]
+    #     inpt_this_state, unnormalized_inpt_this_state, y_this_state = inpt[
+    #                                                                   idx_of_interest,
+    #                                                                   :], \
+    #                                                                   unnormalized_inpt[
+    #                                                                   idx_of_interest,
+    #                                                                   :], \
+    #                                                                   old_y[
+    #                                                                   idx_of_interest,
+    #                                                                   :]
+    #     uniq_contrast_vals = np.unique(unnormalized_inpt_this_state[:, 0])
+    #     plt.subplot(3, 4, k + 5)
+    #     # Get accuracy
+    #     not_zero_loc = np.where(unnormalized_inpt_this_state[:, 0] != 0)[0]
+    #     correct_ans = (-np.sign(unnormalized_inpt_this_state[not_zero_loc, 0]) +
+    #                    1) / 2
+    #     acc = np.sum(y_this_state[not_zero_loc,
+    #                               0] == correct_ans) / len(correct_ans)
+    #     print("accuracy in state = " + str(acc))
 
-        # USE GLM WEIGHTS TO GET PROB RIGHT
-        stim_vals, prob_right_max = get_prob_right(-weight_vectors, inpt, k, 1,
-                                                   1)
-        _, prob_right_min = get_prob_right(-weight_vectors, inpt, k, -1, -1)
-
-        plt.plot(stim_vals,
-                 prob_right_max,
-                 '-',
-                 color=cols[k],
-                 alpha=1,
-                 lw=1,
-                 zorder=5)  # went R and was rewarded
-        plt.plot(stim_vals,
-                 get_prob_right(-weight_vectors, inpt, k, -1, 1)[1],
-                 '--',
-                 color=cols[k],
-                 alpha=0.5,
-                 lw=1)  # went L and was not rewarded
-        plt.plot(stim_vals,
-                 get_prob_right(-weight_vectors, inpt, k, 1, -1)[1],
-                 '-',
-                 color=cols[k],
-                 alpha=0.5,
-                 lw=1,
-                 markersize=3)  # went R and was not rewarded
-        plt.plot(stim_vals, prob_right_min, '--', color=cols[k], alpha=1,
-                 lw=1)  # went L and was rewarded
-
-        if k == 0:
-            plt.ylabel('p("R")', fontsize=10)
-            plt.xlabel('flash rate (Hz)', fontsize=10)
-            plt.xticks([-1.26321895, -0.00217184, 1.25887527],
-                       labels=['4', '12', '20'],
-                       fontsize=10)
-            plt.yticks([0, 0.5, 1], labels=['0', '0.5', '1'], fontsize=10)
-        else:
-            plt.xticks([-1.26321895, -0.00217184, 1.25887527],
-                       labels=['', '', ''],
-                       fontsize=10)
-            plt.yticks([0, 0.5, 1], labels=['', '', ''], fontsize=10)
-            plt.ylabel('')
-            plt.xlabel('')
-        plt.ylim((0, 1))
-        acc = 100 * np.around(acc, decimals=2)
-        plt.title(labels[k], fontsize=10, color=cols[k])
-        plt.axhline(y=0.5, color="k", alpha=0.5, ls="--", linewidth=0.75)
-        plt.axvline(x=0, color="k", alpha=0.5, ls="--", linewidth=0.75)
-        plt.gca().spines['right'].set_visible(False)
-        plt.gca().spines['top'].set_visible(False)
+        # # USE GLM WEIGHTS TO GET PROB RIGHT
+        # stim_vals, prob_right_max = get_prob_right(-weight_vectors, inpt, k, 1,
+        #                                            1)
+        # _, prob_right_min = get_prob_right(-weight_vectors, inpt, k, -1, -1)
+        #
+        # plt.plot(stim_vals,
+        #          prob_right_max,
+        #          '-',
+        #          color=cols[k],
+        #          alpha=1,
+        #          lw=1,
+        #          zorder=5)  # went R and was rewarded
+        # plt.plot(stim_vals,
+        #          get_prob_right(-weight_vectors, inpt, k, -1, 1)[1],
+        #          '--',
+        #          color=cols[k],
+        #          alpha=0.5,
+        #          lw=1)  # went L and was not rewarded
+        # plt.plot(stim_vals,
+        #          get_prob_right(-weight_vectors, inpt, k, 1, -1)[1],
+        #          '-',
+        #          color=cols[k],
+        #          alpha=0.5,
+        #          lw=1,
+        #          markersize=3)  # went R and was not rewarded
+        # plt.plot(stim_vals, prob_right_min, '--', color=cols[k], alpha=1,
+        #          lw=1)  # went L and was rewarded
+        #
+        # if k == 0:
+        #     plt.ylabel('p("R")', fontsize=10)
+        #     plt.xlabel('flash rate (Hz)', fontsize=10)
+        #     plt.xticks([-1.26321895, -0.00217184, 1.25887527],
+        #                labels=['4', '12', '20'],
+        #                fontsize=10)
+        #     plt.yticks([0, 0.5, 1], labels=['0', '0.5', '1'], fontsize=10)
+        # else:
+        #     plt.xticks([-1.26321895, -0.00217184, 1.25887527],
+        #                labels=['', '', ''],
+        #                fontsize=10)
+        #     plt.yticks([0, 0.5, 1], labels=['', '', ''], fontsize=10)
+        #     plt.ylabel('')
+        #     plt.xlabel('')
+        # plt.ylim((0, 1))
+        # acc = 100 * np.around(acc, decimals=2)
+        # plt.title(labels[k], fontsize=10, color=cols[k])
+        # plt.axhline(y=0.5, color="k", alpha=0.5, ls="--", linewidth=0.75)
+        # plt.axvline(x=0, color="k", alpha=0.5, ls="--", linewidth=0.75)
+        # plt.gca().spines['right'].set_visible(False)
+        # plt.gca().spines['top'].set_visible(False)
 
     # ================ DWELL TIMES ==================================
 
@@ -229,14 +244,15 @@ if __name__ == '__main__':
 
     state_dwell_times = np.zeros((len(animal_list), K))
     for k in range(K):
-        plt.subplot(3, 4, k + 9)
+        plt.subplot(3, 4, k + 5)
+        # plt.subplot(3, 4, k + 9)
         for z, animal in enumerate(animal_list):
-            results_dir = overall_dir + animal + '/'
+            results_dir = overall_dir / animal
 
-            cv_file = results_dir + "/cvbt_folds_model.npz"
+            cv_file = results_dir / "cvbt_folds_model.npz"
             cvbt_folds_model = load_cv_arr(cv_file)
 
-            with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+            with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
                 best_init_cvbt_dict = json.load(f)
 
             # Get the file name corresponding to the best initialization for
@@ -298,4 +314,4 @@ if __name__ == '__main__':
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
 
-    fig.savefig(figure_dir + 'fig5.pdf')
+    fig.savefig(figure_dir / 'fig5_om.png')

@@ -24,8 +24,8 @@ npr.seed(0)
 
 
 if __name__ == '__main__':
-    animal = "CSHL_008"
-    K = 3
+    animal = "0.0"
+    K = 4
     sigma_val = 2
     covar_set = 2
     alpha_val = 2

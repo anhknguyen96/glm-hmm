@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
 
-    K = 3
+    K = 4
     D, M, C = 1, 3, 2
 
     global_directory = Path('../../results/om/om_global_fit/')

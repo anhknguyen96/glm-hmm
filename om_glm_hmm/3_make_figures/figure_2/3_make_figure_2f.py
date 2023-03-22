@@ -14,7 +14,7 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     create_violation_mask, get_marginal_posterior
 
 if __name__ == '__main__':
-    animal = "1.0"
+    animal = "9.0"
     K = 4
     root_folder_name = 'om'
     root_data_dir = Path('../../data')
@@ -87,12 +87,12 @@ if __name__ == '__main__':
                                   0] == correct_ans) / len(correct_ans)
         accuracies_to_plot.append(acc)
 
-    cols = [
+    cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-        '#999999', '#e41a1c', '#dede00', "#3498db"
+        '#999999', '#e41a1c', '#dede00'
     ]
 
-    fig = plt.figure(figsize=(1.3, 1.7))
+    fig = plt.figure(figsize=(1.5, 1.7))
     plt.subplots_adjust(left=0.4, bottom=0.3, right=0.95, top=0.95)
     for z, acc in enumerate(accuracies_to_plot):
         if z == 0:
@@ -102,9 +102,9 @@ if __name__ == '__main__':
         plt.bar(z, acc*100, width=0.8, color=col)
     plt.ylim((50, 100))
     plt.xticks([0, 1, 2, 3, 4], ['All', '1', '2', '3', '4'], fontsize=10)
-    plt.yticks([50, 75, 100, 125], fontsize=10)
+    plt.yticks([0, 25, 50, 75, 100], fontsize=10)
     plt.xlabel('state', fontsize=10)
     plt.ylabel('accuracy (%)', fontsize=10, labelpad=-0.5)
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(figure_dir / 'fig2f.pdf')
+    fig.savefig(figure_dir / ('fig2f_OM'+animal+'.png'))
