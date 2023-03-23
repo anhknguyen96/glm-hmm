@@ -14,7 +14,7 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     create_violation_mask, get_marginal_posterior
 
 if __name__ == '__main__':
-    animal = "9.0"
+    animal = "2.0"
     K = 4
     root_folder_name = 'om'
     root_data_dir = Path('../../data')
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         '#999999', '#e41a1c', '#dede00'
     ]
 
-    fig = plt.figure(figsize=(1.5, 1.7))
+    fig = plt.figure(figsize=(2, 2.2))
     plt.subplots_adjust(left=0.4, bottom=0.3, right=0.95, top=0.95)
     for z, acc in enumerate(accuracies_to_plot):
         if z == 0:
@@ -107,4 +107,5 @@ if __name__ == '__main__':
     plt.ylabel('accuracy (%)', fontsize=10, labelpad=-0.5)
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(figure_dir / ('fig2f_OM'+animal+'.png'))
+    # fig.savefig(figure_dir / ('fig2f_OM'+animal+'.png'))
+    fig.savefig(figure_dir / ('fig2f_OM'+animal), format='png', bbox_inches="tight")

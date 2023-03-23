@@ -2,7 +2,7 @@
 import json
 import os
 import sys
-
+from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, '../')
@@ -12,28 +12,38 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, \
 import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
-    animal = "CSHL_008"
-    K = 3
+    # animal = "CSHL_008"
+    # K = 3
+    #
+    # data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
+    # results_dir = '../../results/ibl_individual_fit/' + animal + '/'
+    # figure_dir = '../../figures/figure_2/'
 
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    results_dir = '../../results/ibl_individual_fit/' + animal + '/'
-    figure_dir = '../../figures/figure_2/'
+    animal = "2.0"
+    K = 4
+    root_folder_name = 'om'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    figure_dir = Path('../../figures/figure_2')
+    data_dir = root_data_dir / root_folder_name / (root_folder_name + '_data_for_cluster') / 'data_by_animal'
+    results_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit') / animal
+
     if not os.path.exists(figure_dir):
         os.makedirs(figure_dir)
 
-    cv_file = results_dir + "/cvbt_folds_model.npz"
+    cv_file = results_dir / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
-    with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+    with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
         best_init_cvbt_dict = json.load(f)
 
     # Get cvbt and pred acc:
     cols = ['#999999', '#984ea3', '#e41a1c', '#dede00']
-    cv_arr = load_cv_arr(results_dir + "/cvbt_folds_model.npz")
+    cv_arr = load_cv_arr(results_dir / "cvbt_folds_model.npz")
 
     cv_arr_for_plotting = cv_arr[[0, 2, 3, 4, 5, 6], :]
 
-    pred_acc_arr = load_cv_arr(results_dir + "predictive_accuracy_mat.npz")
+    pred_acc_arr = load_cv_arr(results_dir / "predictive_accuracy_mat.npz")
     pred_acc_arr_for_plotting = pred_acc_arr[[0, 2, 3, 4, 5, 6], :]
 
     # ========== FIG 2b ==========
@@ -56,8 +66,10 @@ if __name__ == '__main__':
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
     plt.ylabel("test LL (bits/trial)", fontsize=10)
+    plt.ylim(0.30, 0.42)
     plt.xlabel("# states", fontsize=10)
-    fig.savefig(figure_dir + 'fig2b.pdf')
+    # fig.savefig(figure_dir + 'fig2b.pdf')
+    fig.savefig(figure_dir / 'fig2_b', format='png', bbox_inches="tight")
 
     # ========== FIG 2c ==========
     fig = plt.figure(figsize=(2, 1.6))
@@ -65,7 +77,7 @@ if __name__ == '__main__':
     plt.plot([0, 0.5, 1, 2, 3, 4],
              np.mean(pred_acc_arr_for_plotting, axis=1),
              '-o',
-             color=cols[1],
+             color='#8B8378',
              zorder=0,
              alpha=1,
              lw=1.5,
@@ -80,7 +92,8 @@ if __name__ == '__main__':
     plt.gca().spines['top'].set_visible(False)
     plt.ylabel("predictive acc. (%)", fontsize=10)
     plt.xlabel("# states", fontsize=10)
-    fig.savefig(figure_dir + 'fig2c.pdf')
+    # fig.savefig(figure_dir + 'fig2c.pdf')
+    fig.savefig(figure_dir / 'fig2_c', format='png', bbox_inches="tight")
 
     # =========== Fig 2d =============
     raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
@@ -90,7 +103,7 @@ if __name__ == '__main__':
 
     transition_matrix = np.exp(hmm_params[1][0])
 
-    fig = plt.figure(figsize=(1.6, 1.6))
+    fig = plt.figure(figsize=(3, 3))
     plt.subplots_adjust(left=0.3, bottom=0.3, right=0.95, top=0.95)
     plt.imshow(transition_matrix, vmin=-0.8, vmax=1, cmap='bone')
     for i in range(transition_matrix.shape[0]):
@@ -113,12 +126,13 @@ if __name__ == '__main__':
     plt.ylim(K - 0.5, -0.5)
     plt.ylabel("state t-1", fontsize=10)
     plt.xlabel("state t", fontsize=10)
-    fig.savefig(figure_dir + 'fig2d.pdf')
+    # fig.savefig(figure_dir + 'fig2d.pdf')
+    fig.savefig(figure_dir / 'fig2_d', format='png', bbox_inches="tight")
 
     # =========== Fig 2e =============
     weight_vectors = -hmm_params[2]
 
-    cols = [
+    cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
         '#999999', '#e41a1c', '#dede00'
     ]
@@ -127,7 +141,7 @@ if __name__ == '__main__':
     M = weight_vectors.shape[2] - 1
     for k in range(K):
         plt.plot(range(M + 1),
-                 weight_vectors[k][0][[0, 3, 1, 2]],
+                 weight_vectors[k][0][[0, 1, 2,3]],
                  marker='o',
                  label="state " + str(k + 1),
                  color=cols[k],
@@ -136,11 +150,12 @@ if __name__ == '__main__':
     plt.yticks([-2.5, 0, 2.5, 5], fontsize=10)
     plt.xticks(
         [0, 1, 2, 3],
-        ['stimulus', 'bias', 'prev. \nchoice', 'win-stay-\nlose-switch'],
+        ['stimulus', 'prev. \nchoice', 'win-stay-\nlose-switch', 'bias'],
         fontsize=10,
         rotation=45)
     plt.ylabel("GLM weight", fontsize=10)
     plt.axhline(y=0, color="k", alpha=0.5, ls="--", lw=0.5)
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(figure_dir + 'fig2e.pdf')
+    # fig.savefig(figure_dir + 'fig2e.pdf')
+    fig.savefig(figure_dir / 'fig2_e', format='png', bbox_inches="tight")
