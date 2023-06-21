@@ -18,7 +18,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -30,16 +30,22 @@ if __name__ == '__main__':
     results_dir = root_result_dir / root_folder_name / (root_folder_name +'_global_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
+    # Subset to relevant covariates for covar set of interest:
+    if root_folder_name == 'om_accuracy':
+        labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
+        animal_file_name = 'acc_all_animals_concat.npz'
+    else:
+        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
+        animal_file_name = 'all_animals_concat.npz'
 
     # Fit GLM to all data
-    animal_file = data_dir / 'all_animals_concat.npz'
+    animal_file = data_dir / animal_file_name
     inpt, y, session = load_data(animal_file)
     session_fold_lookup_table = load_session_fold_lookup(
         data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
     for fold in range(num_folds):
-        # Subset to relevant covariates for covar set of interest:
-        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
+
         # y = y.astype('int')
         figure_directory = results_dir / "GLM" / ("fold_" + str(fold))
         if not os.path.exists(figure_directory):

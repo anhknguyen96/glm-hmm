@@ -20,7 +20,7 @@ if __name__ == '__main__':
     root_result_dir = Path('../../results')
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
 
-    num_lapse_params = 2
+    num_lapse_params = 1
 
     results_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
 

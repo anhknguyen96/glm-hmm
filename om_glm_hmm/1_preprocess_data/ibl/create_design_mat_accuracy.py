@@ -16,7 +16,7 @@ if not os.path.exists(data_dir / "data_by_animal"):
 if not os.path.exists(data_dir / "partially_processed"):
     os.makedirs(data_dir / "partially_processed")
 
-file_path = '/home/anh/Documents/phd/outcome_manip/data/om_all_batch1&2&3_phase4.csv'
+file_path = '/home/anh/Documents/phd/outcome_manip_git/data/om_all_batch1&2&3_phase4.csv'
 om_cleaned = pd.read_csv(file_path)
 om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
 om_cleaned['session_identifier'] =  'm' + om_cleaned['mouse_id']+ 's' + om_cleaned['session_no'].astype(str)
@@ -25,10 +25,10 @@ animal_df = animal_df.drop_duplicates(subset=['session_identifier'])
 animal_eid_dict = animal_df.groupby('mouse_id')['session_identifier'].apply(list).to_dict()
 animal_list = om_cleaned.mouse_id.unique()
 json = json.dumps(animal_eid_dict)
-# f = open(data_dir / 'partially_processed' /'animal_eid_dict.json',  "w")
-# f.write(json)
-# f.close()
-# np.savez(data_dir / 'partially_processed'/ 'animal_list.npz', animal_list)
+f = open(data_dir / 'partially_processed' /'animal_eid_dict.json',  "w")
+f.write(json)
+f.close()
+np.savez(data_dir / 'partially_processed'/ 'animal_list.npz', animal_list)
 choice_or_accuracy = 'acc'
 if choice_or_accuracy == 'acc':
     columns_wanted = ['prev_failure', 'sound_index','z_abs_freqs','success']
@@ -43,6 +43,7 @@ for mouse_id in range(len(animal_list)):
             design_mat[:, design_mat_arr_index] = np.array(om_tmp[columns_wanted[design_mat_arr_index]])
         else:
             y = np.expand_dims(np.array(om_tmp[columns_wanted[design_mat_arr_index]]), axis=1)
+            y = y.astype('int')         # assertion error in ssm stats
     session = np.array(om_tmp.session_identifier)
     rewarded = np.array(om_tmp.success)
     np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + choice_or_accuracy + '_processed.npz'),

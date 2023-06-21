@@ -15,16 +15,21 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
-
+    if root_folder_name == 'om_accuracy':
+        animal_file_name = 'acc_all_animals_concat.npz'
+        models = ["GLM", "GLM_HMM"]
+    else:
+        animal_file_name = 'all_animals_concat.npz'
+        models = ["GLM", "Lapse_Model", "GLM_HMM"]
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     results_dir = root_result_dir / root_folder_name / (root_folder_name +'_global_fit')
 
     # Load data
-    inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
+    inpt, y, session = load_data(data_dir / animal_file_name)
     session_fold_lookup_table = load_session_fold_lookup(
         data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
@@ -32,11 +37,10 @@ if __name__ == '__main__':
     C = 2  # number of output classes
     num_folds = 5  # number of folds
     D = 1  # number of output dimensions
-    K_max = 5  # maximum number of latent states
+    K_max = 4  # maximum number of latent states
     num_models = K_max + 2  # model for each latent + 2 lapse models
 
     animal_preferred_model_dict = {}
-    models = ["GLM", "Lapse_Model", "GLM_HMM"]
 
     cvbt_folds_model = np.zeros((num_models, num_folds))
     cvbt_train_folds_model = np.zeros((num_models, num_folds))

@@ -17,7 +17,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -47,8 +47,13 @@ if __name__ == '__main__':
     cluster_arr = load_cluster_arr(cluster_arr_file)
     [K, fold, iter] = cluster_arr[z]
 
+    if root_folder_name == 'om_accuracy':
+        animal_file_name = 'acc_all_animals_concat.npz'
+    else:
+        animal_file_name = 'all_animals_concat.npz'
+
     #  read in data and train/test split
-    animal_file = data_dir / 'all_animals_concat.npz'
+    animal_file = data_dir / animal_file_name
     session_fold_lookup_table = load_session_fold_lookup(
         data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
@@ -60,8 +65,10 @@ if __name__ == '__main__':
     violation_idx = np.where(y == -1)[0]
     nonviolation_idx, mask = create_violation_mask(violation_idx,
                                                    inpt.shape[0])
-
-    for z in np.arange(200,cluster_arr.shape[0]):
+    # K = 5;
+    # Fold = 0;
+    # Iter = 7
+    for z in np.arange(cluster_arr.shape[0]):
         [K, fold, iter] = cluster_arr[z]
         #  GLM weights to use to initialize GLM-HMM
         init_param_file = results_dir /'GLM' / ('fold_' + str(

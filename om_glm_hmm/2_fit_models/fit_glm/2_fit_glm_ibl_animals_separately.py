@@ -17,7 +17,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
@@ -29,19 +29,26 @@ if __name__ == '__main__':
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
+    if root_folder_name == 'om_accuracy':
+        labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
+        processed_file_name = 'acc_processed.npz'
+        session_lookup_name = 'acc_session_fold_lookup.npz'
+    else:
+        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
+        processed_file_name = '_processed.npz'
+        session_lookup_name = 'session_fold_lookup.npz'
+
     for animal in animal_list:
         # Fit GLM to data from single animal:
-        animal_file = data_dir / (animal + '_processed.npz')
+        animal_file = data_dir / (animal + processed_file_name)
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir / (animal + '_session_fold_lookup.npz'))
+            data_dir / (animal + session_lookup_name))
 
         for fold in range(num_folds):
             this_results_dir = results_dir / animal
 
             # Load data
             inpt, y, session = load_data(animal_file)
-            labels_for_plot = ['stim', 'pc', 'wsls', 'bias']
-            y = y.astype('int')
 
             figure_directory = this_results_dir / "GLM" / ("fold_" + str(fold))
             if not os.path.exists(figure_directory):
