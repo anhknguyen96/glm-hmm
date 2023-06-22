@@ -18,7 +18,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 

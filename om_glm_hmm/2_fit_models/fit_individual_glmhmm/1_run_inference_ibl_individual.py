@@ -17,9 +17,16 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
+
+    if root_folder_name == 'om_accuracy':
+        processed_file_name = 'acc_processed.npz'
+        session_lookup_name = 'acc_session_fold_lookup.npz'
+    else:
+        processed_file_name = '_processed.npz'
+        session_lookup_name = 'session_fold_lookup.npz'
 
     global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     data_dir = global_data_dir / 'data_by_animal'
@@ -58,9 +65,9 @@ if __name__ == '__main__':
 
         for i, animal in enumerate(animal_list):
             print(animal)
-            animal_file = data_dir / (animal + '_processed.npz')
+            animal_file = data_dir / (animal + processed_file_name)
             session_fold_lookup_table = load_session_fold_lookup(
-                data_dir / (animal + '_session_fold_lookup.npz'))
+                data_dir / (animal + session_lookup_name))
 
             global_fit = False
 

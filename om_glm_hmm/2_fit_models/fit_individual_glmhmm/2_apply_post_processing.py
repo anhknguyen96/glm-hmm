@@ -19,9 +19,18 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
+
+    if root_folder_name == 'om_accuracy':
+        processed_file_name = 'acc_processed.npz'
+        session_lookup_name = 'acc_session_fold_lookup.npz'
+        models = ["GLM", "GLM_HMM"]
+    else:
+        processed_file_name = '_processed.npz'
+        session_lookup_name = 'session_fold_lookup.npz'
+        models = ["GLM", "Lapse_Model", "GLM_HMM"]
 
     global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     data_dir = global_data_dir / 'data_by_animal'
@@ -34,7 +43,7 @@ if __name__ == '__main__':
     C = 2  # number of output classes
     num_folds = 5  # number of folds
     D = 1  # number of output dimensions
-    K_max = 5  # number of latent states
+    K_max = 4  # number of latent states
     num_models = K_max + 2  # model for each latent + 2 lapse
     # models
 
@@ -42,12 +51,11 @@ if __name__ == '__main__':
     for animal in animal_list:
         overall_dir = results_dir / animal
         # Load data
-        inpt, y, session = load_data(data_dir / (animal + '_processed.npz'))
+        inpt, y, session = load_data(data_dir / (animal + processed_file_name))
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir / (animal + '_session_fold_lookup.npz'))
+            data_dir / (animal + session_lookup_name))
 
         animal_preferred_model_dict = {}
-        models = ["GLM", "Lapse_Model", "GLM_HMM"]
 
         cvbt_folds_model = np.zeros((num_models, num_folds))
         cvbt_train_folds_model = np.zeros((num_models, num_folds))
