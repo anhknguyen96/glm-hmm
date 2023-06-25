@@ -21,13 +21,18 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, \
 
 if __name__ == '__main__':
 
-    root_folder_name = 'om'
+    root_folder_name = 'om_accuracy'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
     figure_dir = Path('../../figures/figure_5')
     if not os.path.exists(figure_dir):
         os.makedirs(figure_dir)
-
+    if root_folder_name == 'om_accuracy':
+        labels_for_plot = ['PF', 'side', 'diff', 'intercept']
+        animal_file_name = 'acc_all_animals_concat.npz'
+    else:
+        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
+        animal_file_name = 'all_animals_concat.npz'
     outer_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     overall_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
     global_results_dir = root_result_dir / root_folder_name / (root_folder_name + '_global_fit')
@@ -78,7 +83,7 @@ if __name__ == '__main__':
             weight_vectors = -hmm_params[2]
 
             plt.plot(range(M + 1),
-                     weight_vectors[k][0][[0, 1, 2, 3]],
+                     weight_vectors[k][0][np.arange(len(labels_for_plot))],
                      '-o',
                      color=cols[k],
                      lw=1,
@@ -86,7 +91,7 @@ if __name__ == '__main__':
                      markersize=3)
         if k == 0:
             plt.yticks([-2, 0, 2, 4], fontsize=10)
-            plt.xticks([0, 1, 2, 3], ['stim.', 'p.c.', 'w.s.l.s.', 'bias'],
+            plt.xticks(np.arange(len(labels_for_plot)), labels_for_plot,
                        fontsize=10,
                        rotation=20)
             plt.ylabel("GLM weight", fontsize=10)
@@ -118,48 +123,48 @@ if __name__ == '__main__':
         plt.ylim((-4, 4))
 
     # ================= GLM CURVES ====================
-    inpt, old_y, session = load_data(outer_data_dir / 'all_animals_concat.npz')
-    unnormalized_inpt, _, _ = load_data(outer_data_dir /
-                                        'all_animals_concat_unnormalized.npz')
-    y = np.copy(old_y)
-
-    # Restrict to non-violation trials:
-    violation_idx = np.where(y == -1)[0]
-    nonviolation_idx, mask = create_violation_mask(violation_idx,
-                                                   inpt.shape[0])
-    y[np.where(y == -1), :] = 1
-    inputs, datas, train_masks = partition_data_by_session(
-        np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
-
-    covar_set = 2
-    # Get posterior probs:
-    results_dir = global_results_dir
-    cv_file = results_dir / "cvbt_folds_model.npz"
-    cvbt_folds_model = load_cv_arr(cv_file)
-
-    with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
-        best_init_cvbt_dict = json.load(f)
-
-    # Get the file name corresponding to the best initialization for given K
-    # value
-    raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
-                                                 results_dir,
-                                                 best_init_cvbt_dict)
-    hmm_params, lls = load_glmhmm_data(raw_file)
-    weight_vectors = hmm_params[2]
-    log_transition_matrix = hmm_params[1][0]
-    init_state_dist = hmm_params[0][0]
-
-    posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
-                                             hmm_params, K, range(K))
-    _, counts = np.unique(np.argmax(posterior_probs, axis=1),
-                          return_counts=True)
-
-    cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
-        '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-        '#999999', '#e41a1c', '#dede00'
-    ]
-    labels = ["'engaged'", "'biased left'", "'biased right'", "'win stay'"]
+    # inpt, old_y, session = load_data(outer_data_dir / animal_file_name)
+    # unnormalized_inpt, _, _ = load_data(outer_data_dir /
+    #                                     'all_animals_concat_unnormalized.npz')
+    # y = np.copy(old_y)
+    #
+    # # Restrict to non-violation trials:
+    # violation_idx = np.where(y == -1)[0]
+    # nonviolation_idx, mask = create_violation_mask(violation_idx,
+    #                                                inpt.shape[0])
+    # y[np.where(y == -1), :] = 1
+    # inputs, datas, train_masks = partition_data_by_session(
+    #     np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+    #
+    # covar_set = 2
+    # # Get posterior probs:
+    # results_dir = global_results_dir
+    # cv_file = results_dir / "cvbt_folds_model.npz"
+    # cvbt_folds_model = load_cv_arr(cv_file)
+    #
+    # with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
+    #     best_init_cvbt_dict = json.load(f)
+    #
+    # # Get the file name corresponding to the best initialization for given K
+    # # value
+    # raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
+    #                                              results_dir,
+    #                                              best_init_cvbt_dict)
+    # hmm_params, lls = load_glmhmm_data(raw_file)
+    # weight_vectors = hmm_params[2]
+    # log_transition_matrix = hmm_params[1][0]
+    # init_state_dist = hmm_params[0][0]
+    #
+    # posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+    #                                          hmm_params, K, range(K))
+    # _, counts = np.unique(np.argmax(posterior_probs, axis=1),
+    #                       return_counts=True)
+    #
+    # cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
+    #     '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
+    #     '#999999', '#e41a1c', '#dede00'
+    # ]
+    # labels = ["'engaged'", "'biased left'", "'biased right'", "'win stay'"]
     # for k in range(K):
     #     # Get index of trials where posterior_probs > 0.9 and not violation
     #     idx_of_interest = \

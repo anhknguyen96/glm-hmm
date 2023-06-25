@@ -17,18 +17,36 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
 
 
 if __name__ == '__main__':
-    data_dir = Path('../../data/om/om_data_for_cluster/data_by_animal')
-    overall_dir = Path('../../results/om/om_individual_fit')
-    figure_dir = Path('../../figures/om/figure_4')
-    if not os.path.exists(figure_dir):
-        os.makedirs(figure_dir)
+    root_folder_name = 'om_accuracy'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    root_figure_dir = Path('../../figures')
 
+    global_data_dir = root_data_dir / root_folder_name / (root_folder_name + '_data_for_cluster')
+    data_dir = global_data_dir / 'data_by_animal'
+    overall_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
+    figure_dir = root_figure_dir / root_folder_name / 'figure_4'
+    if not Path.exists(figure_dir):
+        Path.mkdir(figure_dir,parents=True)
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
-
     K = 4
     D, M, C = 1, 3, 2
 
-    global_directory = Path('../../results/om/om_global_fit/')
+    plt_xticks_location = np.arange(K)
+    plt_xticks_label =  [str(x) for x in (plt_xticks_location + 1)]
+    if root_folder_name == 'om_accuracy':
+        idx_cv_arr = [1,2]
+        processed_file_name = 'acc_processed.npz'
+        session_lookup_name = 'acc_session_fold_lookup.npz'
+    else:
+        idx_cv_arr = [1]
+        plt_xticks_location.insert(idx_cv_arr[0],0.5)
+        plt_xticks_label.insert(idx_cv_arr[0], 'L')
+        processed_file_name = '_processed.npz'
+        session_lookup_name = 'session_fold_lookup.npz'
+
+
+    global_directory = root_result_dir/ root_folder_name / (root_folder_name+'_global_fit')
     global_weights = get_global_weights(global_directory, K)
 
     # fig = plt.figure(figsize=(6, 6))
@@ -47,7 +65,10 @@ if __name__ == '__main__':
     for animal in animal_list:
         results_dir = overall_dir / animal
         cv_arr = load_cv_arr(results_dir / "cvbt_folds_model.npz")
-        cv_arr_for_plotting = cv_arr[[0, 2, 3, 4, 5, 6], :]
+        idx_range = len(cv_arr)
+        idx_tmp = np.arange(idx_range)
+        idx = np.delete(idx_tmp, idx_cv_arr)
+        cv_arr_for_plotting = cv_arr[idx, :]
         mean_cvbt = np.mean(cv_arr_for_plotting, axis=1)
         across_animals.append(mean_cvbt - mean_cvbt[0])
         if animal == "CSHL_008":
@@ -62,7 +83,7 @@ if __name__ == '__main__':
                      markersize=4,
                      label='example mouse')
         else:
-            plt.plot([0, 0.5, 1, 2, 3, 4],
+            plt.plot(plt_xticks_location,
                      mean_cvbt - mean_cvbt[0],
                      '-o',
                      color=cols[0],
@@ -72,7 +93,7 @@ if __name__ == '__main__':
                      markersize=4)
     across_animals = np.array(across_animals)
     mean_cvbt = np.mean(np.array(across_animals), axis=0)
-    plt.plot([0, 0.5, 1, 2, 3, 4],
+    plt.plot(plt_xticks_location,
              mean_cvbt - mean_cvbt[0],
              '-o',
              color='k',
@@ -81,7 +102,7 @@ if __name__ == '__main__':
              lw=1.5,
              markersize=4,
              label='mean')
-    plt.xticks([0, 0.5, 1, 2, 3, 4], ['1', 'L.', '2', '3', '4', '5'],
+    plt.xticks(plt_xticks_location, plt_xticks_label,
                fontsize=10)
     plt.ylabel("$\Delta$ test LL (bits/trial)", fontsize=10, labelpad=0)
     plt.xlabel("# states", fontsize=10, labelpad=0)
@@ -100,7 +121,7 @@ if __name__ == '__main__':
                      markerscale=0)
     for legobj in leg.legendHandles:
         legobj.set_linewidth(1.0)
-    fig.savefig(figure_dir / 'fig4_a',format='png', bbox_inches="tight")
+    fig.savefig(figure_dir / 'fig4_a.png',format='png', bbox_inches="tight")
     # =========== PRED ACC =========================
     # plt.subplot(3, 3, 2)
     fig, ax = plt.subplots(figsize=(3, 3))
@@ -121,7 +142,10 @@ if __name__ == '__main__':
                 correct_mat, axis=1)
 
         pred_acc_arr = load_cv_arr(results_dir / "predictive_accuracy_mat.npz")
-        pred_acc_arr_for_plotting = pred_acc_arr[[0, 2, 3, 4, 5, 6], :]
+        if root_folder_name == 'om_accuracy':
+            pred_acc_arr_for_plotting = pred_acc_arr
+        else:
+            pred_acc_arr_for_plotting = pred_acc_arr[plt_xticks_location, :]
 
         mean_acc = np.mean(pred_acc_arr_for_plotting, axis=1)
         if animal == "CSHL_008":
@@ -136,7 +160,7 @@ if __name__ == '__main__':
                      markersize=4,
                      label='example mouse')
         else:
-            plt.plot([0, 0.5, 1, 2, 3, 4],
+            plt.plot(plt_xticks_location,
                      mean_acc - mean_acc[0],
                      '-o',
                      color='#EEDFCC',
@@ -147,12 +171,12 @@ if __name__ == '__main__':
         mean_across_animals.append(mean_acc - mean_acc[0])
     ymin = -0.01
     ymax = 0.15
-    plt.xticks([0, 0.5, 1, 2, 3, 4], ['1', 'L.', '2', '3', '4', '5'],
+    plt.xticks(plt_xticks_location, plt_xticks_label,
                fontsize=10)
     plt.ylim((ymin, ymax))
     trial_nums = (trials_correctly_predicted_all_folds -
                   trials_correctly_predicted_all_folds[0])
-    plt.plot([0, 0.5, 1, 2, 3, 4],
+    plt.plot(plt_xticks_location,
              np.mean(mean_across_animals, axis=0),
              '-o',
              color='#8B8378',
@@ -166,7 +190,7 @@ if __name__ == '__main__':
     plt.yticks([0, 0.05, 0.1], ["0", "5%", '10%'])
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(figure_dir / 'fig4_b',format='png', bbox_inches="tight")
+    fig.savefig(figure_dir / 'fig4_b.png',format='png', bbox_inches="tight")
 
     # ================ SIMPLEX =======================
     # plt.subplot(3, 3, 3)

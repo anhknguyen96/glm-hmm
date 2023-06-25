@@ -20,12 +20,25 @@ from plotting_utils import load_glmhmm_data, load_animal_list, load_cv_arr, \
 cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306"]
 
 if __name__ == '__main__':
-    global_data_dir = Path('../../data/om/om_data_for_cluster')
+    root_folder_name = 'om_accuracy'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+
+    global_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     data_dir = global_data_dir / 'data_by_animal'
-    overall_dir = Path('../../results/om/om_individual_fit')
+    overall_dir = root_result_dir / root_folder_name / (root_folder_name +'_individual_fit')
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
+
+    if root_folder_name == 'om_accuracy':
+        processed_file_name = 'acc_processed.npz'
+        session_lookup_name = 'acc_session_fold_lookup.npz'
+    else:
+        processed_file_name = '_processed.npz'
+        session_lookup_name = 'session_fold_lookup.npz'
+
     sigma_val = 2
     alpha_val = 2
+    K_max = 4
     npr.seed(67)
 
     for animal in animal_list:
@@ -39,7 +52,7 @@ if __name__ == '__main__':
         num_trials_mat = []
 
         # Also get data for animal:
-        inpt, y, session = load_data(data_dir / (animal + '_processed.npz'))
+        inpt, y, session = load_data(data_dir / (animal + processed_file_name))
 
         # create train test idx
         trial_fold_lookup_table = create_train_test_trials_for_pred_acc(
@@ -60,27 +73,28 @@ if __name__ == '__main__':
             num_trials_mat.append(len(idx_to_exclude))
         predictive_acc_mat.append(predictive_acc_glm)
 
-        # Lapse Model fit:
-        for num_lapse_params in [1, 2]:
-            if num_lapse_params == 1:
-                lapse_file = results_dir / \
-                             'Lapse_Model' / 'fold_0' / 'lapse_model_params_one_param.npz'
-            elif num_lapse_params == 2:
-                lapse_file = results_dir / \
-                             'Lapse_Model' / 'fold_0' / 'lapse_model_params_two_param.npz'
-            _, lapse_glm_weights, _, lapse_p, _ = load_lapse_params(lapse_file)
-            predictive_acc_lapse = []
-            for fold in range(5):
-                # identify the idx for exclusion:
-                idx_to_exclude = trial_fold_lookup_table[np.where(
-                    trial_fold_lookup_table[:, 1] == fold)[0], 0].astype('int')
-                predictive_acc = calculate_predictive_acc_lapse_model(
-                    lapse_glm_weights, lapse_p, num_lapse_params, inpt, y,
-                    idx_to_exclude)
-                predictive_acc_lapse.append(predictive_acc)
-            predictive_acc_mat.append(predictive_acc_lapse)
+        if root_folder_name != 'om_accuracy':
+            # Lapse Model fit:
+            for num_lapse_params in [1, 2]:
+                if num_lapse_params == 1:
+                    lapse_file = results_dir / \
+                                 'Lapse_Model' / 'fold_0' / 'lapse_model_params_one_param.npz'
+                elif num_lapse_params == 2:
+                    lapse_file = results_dir / \
+                                 'Lapse_Model' / 'fold_0' / 'lapse_model_params_two_param.npz'
+                _, lapse_glm_weights, _, lapse_p, _ = load_lapse_params(lapse_file)
+                predictive_acc_lapse = []
+                for fold in range(5):
+                    # identify the idx for exclusion:
+                    idx_to_exclude = trial_fold_lookup_table[np.where(
+                        trial_fold_lookup_table[:, 1] == fold)[0], 0].astype('int')
+                    predictive_acc = calculate_predictive_acc_lapse_model(
+                        lapse_glm_weights, lapse_p, num_lapse_params, inpt, y,
+                        idx_to_exclude)
+                    predictive_acc_lapse.append(predictive_acc)
+                predictive_acc_mat.append(predictive_acc_lapse)
 
-        for K in range(2, 6):
+        for K in range(2, K_max+1):
             with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
                 best_init_cvbt_dict = json.load(f)
 
