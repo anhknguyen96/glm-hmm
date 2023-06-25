@@ -97,10 +97,10 @@ if __name__ == '__main__':
             plt.ylabel("GLM weight", fontsize=10)
         else:
             plt.yticks([-4, -2, 0, 2, 4], ['','', '', '', ''])
-            plt.xticks([0, 1, 2, 3], ['', '', '', ''])
+            plt.xticks(np.arange(len(labels_for_plot)), ['', '', '', ''])
         plt.title("state " + str(k + 1), fontsize=10, color=cols[k])
         plt.plot(range(M + 1),
-                 global_weights[k][0][[0, 3, 1, 2]],
+                 global_weights[k][0][np.arange(len(labels_for_plot))],
                  '-o',
                  color='k',
                  lw=1.3,
