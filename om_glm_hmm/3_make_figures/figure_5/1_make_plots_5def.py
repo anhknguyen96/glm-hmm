@@ -241,7 +241,6 @@ if __name__ == '__main__':
     # ================ DWELL TIMES ==================================
 
     covar_set = 2
-    K = 4
     D, M, C = 1, 3, 2
 
     global_transition_matrix = get_global_trans_mat(global_results_dir, K)
@@ -319,4 +318,4 @@ if __name__ == '__main__':
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
 
-    fig.savefig(figure_dir / 'fig5_om.png')
+    fig.savefig(figure_dir / ('fig5_om_accuracy_K'+str(K)+' .png'))

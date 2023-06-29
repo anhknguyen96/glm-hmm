@@ -30,9 +30,10 @@ if __name__ == '__main__':
         Path.mkdir(figure_dir,parents=True)
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
     K = 4
+    K_plot = 4
     D, M, C = 1, 3, 2
 
-    plt_xticks_location = np.arange(K)
+    plt_xticks_location = np.arange(K_plot)
     plt_xticks_label =  [str(x) for x in (plt_xticks_location + 1)]
     if root_folder_name == 'om_accuracy':
         idx_cv_arr = [1,2]
@@ -47,7 +48,7 @@ if __name__ == '__main__':
 
 
     global_directory = root_result_dir/ root_folder_name / (root_folder_name+'_global_fit')
-    global_weights = get_global_weights(global_directory, K)
+    global_weights = get_global_weights(global_directory, K_plot)
 
     # fig = plt.figure(figsize=(6, 6))
     # plt.subplots_adjust(left=0.1,
@@ -65,7 +66,7 @@ if __name__ == '__main__':
     for animal in animal_list:
         results_dir = overall_dir / animal
         cv_arr = load_cv_arr(results_dir / "cvbt_folds_model.npz")
-        idx_range = len(cv_arr)
+        idx_range = len(cv_arr) - (K-K_plot)
         idx_tmp = np.arange(idx_range)
         idx = np.delete(idx_tmp, idx_cv_arr)
         cv_arr_for_plotting = cv_arr[idx, :]
@@ -121,7 +122,7 @@ if __name__ == '__main__':
                      markerscale=0)
     for legobj in leg.legendHandles:
         legobj.set_linewidth(1.0)
-    fig.savefig(figure_dir / 'fig4_a.png',format='png', bbox_inches="tight")
+    fig.savefig(figure_dir / ('fig4_a'+'K_'+str(K_plot)+'.png'),format='png', bbox_inches="tight")
     # =========== PRED ACC =========================
     # plt.subplot(3, 3, 2)
     fig, ax = plt.subplots(figsize=(3, 3))
@@ -142,10 +143,11 @@ if __name__ == '__main__':
                 correct_mat, axis=1)
 
         pred_acc_arr = load_cv_arr(results_dir / "predictive_accuracy_mat.npz")
+        # this is because predictive accuracy is not calculated when lapse model is not calculated
         if root_folder_name == 'om_accuracy':
-            pred_acc_arr_for_plotting = pred_acc_arr
+            pred_acc_arr_for_plotting = pred_acc_arr[plt_xticks_location,:]
         else:
-            pred_acc_arr_for_plotting = pred_acc_arr[plt_xticks_location, :]
+            pred_acc_arr_for_plotting = pred_acc_arr[idx, :]
 
         mean_acc = np.mean(pred_acc_arr_for_plotting, axis=1)
         if animal == "CSHL_008":
@@ -190,7 +192,7 @@ if __name__ == '__main__':
     plt.yticks([0, 0.05, 0.1], ["0", "5%", '10%'])
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(figure_dir / 'fig4_b.png',format='png', bbox_inches="tight")
+    fig.savefig(figure_dir / ('fig4_b'+'K_'+str(K_plot)+'.png'),format='png', bbox_inches="tight")
 
     # ================ SIMPLEX =======================
     # plt.subplot(3, 3, 3)
