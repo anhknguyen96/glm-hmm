@@ -37,22 +37,27 @@ json = json.dumps(animal_eid_dict)
 #         animal_list = np.delete(animal_list,
 
 
+# create predictors matrix for model fitting
+choice_or_accuracy = 'acc'
+if choice_or_accuracy == 'acc':
+    columns_wanted = ['prev_failure', 'sound_index','z_abs_freqs','success']
+else:
+    columns_wanted = ['freq_trans','prev_choice','wlsw','lick_side_freq']
 for mouse_id in range(len(animal_list)):
     om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == animal_list[mouse_id]].copy().reset_index()
     T = len(om_tmp)
-    design_mat = np.zeros((T, 3))
-    design_mat[:, 0] = np.array(om_tmp.freq_trans)
-    design_mat[:, 1] = np.array(om_tmp.prev_choice)
-    design_mat[:, 2] = np.array(om_tmp.wslw)
-    y = np.expand_dims(np.array(om_tmp.lick_side_freq), axis=1)
+    design_mat = np.zeros((T, len(columns_wanted)-1))
+    for design_mat_arr_index in range(len(columns_wanted)):
+        if design_mat_arr_index != len(columns_wanted)-1:
+            design_mat[:, design_mat_arr_index] = np.array(om_tmp[columns_wanted[design_mat_arr_index]])
+        else:
+            y = np.expand_dims(np.array(om_tmp[columns_wanted[design_mat_arr_index]]), axis=1)
+            y = y.astype('int')         # assertion error in ssm stats
     session = np.array(om_tmp.session_identifier)
     rewarded = np.array(om_tmp.success)
-    # np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_processed.npz'),
-    #          design_mat, y,
-    #          session)
-    # np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_unnormalized.npz'),
-    #          design_mat, y,
-    #          session)
+    np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + choice_or_accuracy + '_processed.npz'),
+             design_mat, y,
+             session)
     np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_rewarded.npz'),
              rewarded)
     animal_session_fold_lookup = create_train_test_sessions(session,
@@ -70,23 +75,19 @@ for mouse_id in range(len(animal_list)):
         master_rewarded = np.concatenate((master_rewarded,rewarded))
         master_session_fold_lookup_table = np.vstack(
         (master_session_fold_lookup_table, animal_session_fold_lookup))
-    # np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] +
-    #          "_session_fold_lookup" +
-    #          ".npz"),
-    #          animal_session_fold_lookup)
+    np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + choice_or_accuracy +
+             "_session_fold_lookup" +
+             ".npz"),
+             animal_session_fold_lookup)
 
-# T_all = len(om_cleaned)
-# design_mat = np.zeros((T_all, 3))
-# design_mat[:, 0] = np.array(om_cleaned.z_freq)
-# design_mat[:, 1] = np.array(om_cleaned.prev_choice)
-# design_mat[:, 2] = np.array(om_cleaned.wslw)
-# y = np.expand_dims(np.array(om_cleaned.lick_side_freq), axis=1)
-# session = np.array(om_cleaned.session_identifier)
-np.savez(data_dir / 'all_animals_concat_unnormalized.npz',
+np.savez(data_dir / (choice_or_accuracy+'_all_animals_concat.npz'),
              master_inpt,
              master_y, master_session)
 np.savez(data_dir / 'all_animals_concat_rewarded.npz',
              master_rewarded)
+np.savez(
+    data_dir / 'all_animals_concat_session_fold_lookup.npz',
+    master_session_fold_lookup_table)
 # np.savez(
 #     data_dir / 'all_animals_concat_session_fold_lookup.npz',
 #     master_session_fold_lookup_table)
