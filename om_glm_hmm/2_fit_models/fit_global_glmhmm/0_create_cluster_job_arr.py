@@ -6,7 +6,7 @@ from pathlib import Path
 K_vals = [2, 3, 4, 5]
 num_folds = 5
 N_initializations = 20
-root_folder_name = 'om_accuracy'
+root_folder_name = 'om_choice'
 root_data_dir = Path('../../data')
 root_result_dir = Path('../../results')
 

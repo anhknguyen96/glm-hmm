@@ -17,7 +17,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
@@ -34,9 +34,9 @@ if __name__ == '__main__':
         processed_file_name = 'acc_processed.npz'
         session_lookup_name = 'acc_session_fold_lookup.npz'
     else:
-        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
-        processed_file_name = '_processed.npz'
-        session_lookup_name = 'session_fold_lookup.npz'
+        labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
+        processed_file_name = 'choice_processed.npz'
+        session_lookup_name = 'choice_session_fold_lookup.npz'
 
     for animal in animal_list:
         # Fit GLM to data from single animal:

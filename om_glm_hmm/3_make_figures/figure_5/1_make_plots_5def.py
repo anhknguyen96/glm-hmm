@@ -21,7 +21,7 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, \
 
 if __name__ == '__main__':
 
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
     figure_dir = Path('../../figures/figure_5')
@@ -31,8 +31,8 @@ if __name__ == '__main__':
         labels_for_plot = ['PF', 'side', 'diff', 'intercept']
         animal_file_name = 'acc_all_animals_concat.npz'
     else:
-        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
-        animal_file_name = 'all_animals_concat.npz'
+        labels_for_plot = ['p-fail', 'p-choice', 'stim', 'stim:p-fail','bias']
+        animal_file_name = 'choice_all_animals_concat.npz'
     outer_data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
     overall_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
     global_results_dir = root_result_dir / root_folder_name / (root_folder_name + '_global_fit')
@@ -52,11 +52,11 @@ if __name__ == '__main__':
         '#999999', '#e41a1c', '#dede00'
     ]
 
-    K = 4
-    D, M, C = 1, 3, 2
+    K = 2
+    D, M, C = 1, len(labels_for_plot)-1, 2
     # ============ GLM weights ==================
     global_weights = get_global_weights(global_results_dir, K)
-    fig = plt.figure(figsize=(7, 6))
+    fig = plt.figure(figsize=(7, 5))
     plt.subplots_adjust(left=0.1,
                         bottom=0.2,
                         right=0.95,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
                         wspace=0.3,
                         hspace=0.6)
     for k in range(K):
-        plt.subplot(3, 4, k + 1)
+        plt.subplot(2, K, k + 1)
 
         for animal in animal_list:
             results_dir = overall_dir / animal
@@ -89,35 +89,40 @@ if __name__ == '__main__':
                      lw=1,
                      alpha=0.7,
                      markersize=3)
-        if k == 0:
-            plt.yticks([-2, 0, 2, 4], fontsize=10)
-            plt.xticks(np.arange(len(labels_for_plot)), labels_for_plot,
-                       fontsize=10,
-                       rotation=20)
-            plt.ylabel("GLM weight", fontsize=10)
-        else:
-            plt.yticks([-4, -2, 0, 2, 4], ['','', '', '', ''])
-            plt.xticks(np.arange(len(labels_for_plot)), ['', '', '', ''])
+        plt.yticks([-2, 0, 2, 4], fontsize=10)
+        plt.xticks(np.arange(len(labels_for_plot)), labels_for_plot,
+                   fontsize=10,
+                   rotation=20)
+        plt.ylabel("GLM weight", fontsize=10)
+        # if k == 0:
+        #     plt.yticks([-2, 0, 2, 4], fontsize=10)
+        #     plt.xticks(np.arange(len(labels_for_plot)), labels_for_plot,
+        #                fontsize=10,
+        #                rotation=20)
+        #     plt.ylabel("GLM weight", fontsize=10)
+        # else:
+        #     plt.yticks([-4, -2, 0, 2, 4], ['','', '', '', ''])
+        #     plt.xticks(np.arange(len(labels_for_plot)), ['']*len(labels_for_plot))
         plt.title("state " + str(k + 1), fontsize=10, color=cols[k])
-        plt.plot(range(M + 1),
-                 global_weights[k][0][np.arange(len(labels_for_plot))],
-                 '-o',
-                 color='k',
-                 lw=1.3,
-                 alpha=1,
-                 markersize=3,
-                 label='global')
+        # plt.plot(range(M + 1),
+        #          global_weights[k][0][np.arange(len(labels_for_plot))],
+        #          '-o',
+        #          color='k',
+        #          lw=1.3,
+        #          alpha=1,
+        #          markersize=3,
+        #          label='global')
         plt.axhline(y=0, color="k", alpha=0.5, ls="--", linewidth=0.75)
-        if k == 1:
-            plt.legend(fontsize=10,
-                       labelspacing=0.2,
-                       handlelength=1,
-                       borderaxespad=0.2,
-                       borderpad=0.2,
-                       framealpha=0,
-                       bbox_to_anchor=(0.53, 1),
-                       handletextpad=0.2,
-                       loc='upper left')
+        # if k == 1:
+        #     plt.legend(fontsize=10,
+        #                labelspacing=0.2,
+        #                handlelength=1,
+        #                borderaxespad=0.2,
+        #                borderpad=0.2,
+        #                framealpha=0,
+        #                bbox_to_anchor=(0.53, 1),
+        #                handletextpad=0.2,
+        #                loc='upper left')
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
         plt.ylim((-4, 4))
@@ -248,7 +253,7 @@ if __name__ == '__main__':
 
     state_dwell_times = np.zeros((len(animal_list), K))
     for k in range(K):
-        plt.subplot(3, 4, k + 5)
+        plt.subplot(2, K, k + (K+1))
         # plt.subplot(3, 4, k + 9)
         for z, animal in enumerate(animal_list):
             results_dir = overall_dir / animal
@@ -289,22 +294,31 @@ if __name__ == '__main__':
                     label='median')
         ax1.get_xaxis().set_major_formatter(
             matplotlib.ticker.ScalarFormatter())
-        if k == 0:
-            ax1.set_yticklabels(labels=["0", "2", "4"], fontsize=10, alpha=1)
-            ax1.set_xticklabels(labels=["1", "10", "100", "1000"],
-                                fontsize=10,
-                                alpha=1,
-                                rotation=45)
-            plt.ylabel("# animals", fontsize=10)
-            plt.xlabel("expected dwell time \n (# trials)",
-                       fontsize=10,
-                       labelpad=0)
-        else:
-            ax1.set_yticklabels(labels=["", "", ""], fontsize=10, alpha=1)
-            ax1.set_xticklabels(labels=["", "", "", ""],
-                                fontsize=10,
-                                alpha=1,
-                                rotation=45)
+        ax1.set_yticklabels(labels=["0", "2", "4"], fontsize=10, alpha=1)
+        ax1.set_xticklabels(labels=["1", "10", "100", "1000"],
+                            fontsize=10,
+                            alpha=1,
+                            rotation=45)
+        plt.ylabel("# animals", fontsize=10)
+        plt.xlabel("expected dwell time \n (# trials)",
+                   fontsize=10,
+                   labelpad=0)
+        # if k == 0:
+        #     ax1.set_yticklabels(labels=["0", "2", "4"], fontsize=10, alpha=1)
+        #     ax1.set_xticklabels(labels=["1", "10", "100", "1000"],
+        #                         fontsize=10,
+        #                         alpha=1,
+        #                         rotation=45)
+        #     plt.ylabel("# animals", fontsize=10)
+        #     plt.xlabel("expected dwell time \n (# trials)",
+        #                fontsize=10,
+        #                labelpad=0)
+        # else:
+        #     ax1.set_yticklabels(labels=["", "", ""], fontsize=10, alpha=1)
+        #     ax1.set_xticklabels(labels=["", "", "", ""],
+        #                         fontsize=10,
+        #                         alpha=1,
+        #                         rotation=45)
         if k == 0:
             plt.legend(fontsize=10,
                        labelspacing=0.2,
@@ -318,4 +332,4 @@ if __name__ == '__main__':
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
 
-    fig.savefig(figure_dir / ('fig5_om_accuracy_K'+str(K)+' .png'))
+    fig.savefig(figure_dir / ('fig5_'+root_folder_name+'_K'+str(K)+'_all.png'))

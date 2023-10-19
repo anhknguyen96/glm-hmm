@@ -14,9 +14,9 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     create_violation_mask, get_marginal_posterior
 
 if __name__ == '__main__':
-    animal = "2.0"
-    K = 4
-    root_folder_name = 'om'
+    animal = "12.0"
+    K = 2
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
     figure_dir = Path('../../figures/figure_2')
@@ -25,17 +25,23 @@ if __name__ == '__main__':
 
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
     results_dir = root_result_dir / root_folder_name / (root_folder_name +'_individual_fit') / animal
+    if root_folder_name == 'om_accuracy':
+        processed_file_name = 'acc_processed.npz'
+        animal_data = 'acc_unnormalized.npz'
+        stim_idx = 0
+    else:
+        processed_file_name = 'choice_processed.npz'
+        animal_data = 'choice_unnormalized.npz'
+        stim_idx = 2
 
-    #
     # data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
     # results_dir = '../../results/ibl_individual_fit/' + animal + '/'
     # figure_dir = '../../figures/figure_2/'
 
     accuracies_to_plot = []
 
-    inpt, old_y, session = load_data(data_dir / (animal + '_processed.npz'))
-    unnormalized_inpt, _, _ = load_data(data_dir / (animal +
-                                        '_unnormalized.npz'))
+    inpt, old_y, session = load_data(data_dir / (animal + processed_file_name))
+    unnormalized_inpt, _, _ = load_data(data_dir / (animal + animal_data))
     y = np.copy(old_y)  # use this for calculating accuracy; use old_y for
     # calculating posterior probs
 
@@ -51,8 +57,8 @@ if __name__ == '__main__':
                                                          nonviolation_idx, :]
 
     # Get accuracy of animal overall:
-    not_zero_loc = np.where(unnormalized_inpt[:, 0] != 0)[0]
-    correct_ans = (-np.sign(unnormalized_inpt[not_zero_loc, 0]) + 1) / 2
+    not_zero_loc = np.where(unnormalized_inpt[:, stim_idx] != 0)[0]
+    correct_ans = (-np.sign(unnormalized_inpt[not_zero_loc, stim_idx]) + 1) / 2
     acc = np.sum(y[not_zero_loc, 0] == correct_ans) / len(correct_ans)
     accuracies_to_plot.append(acc)
 
@@ -80,8 +86,8 @@ if __name__ == '__main__':
         inpt_this_state, unnormalized_inpt_this_state, y_this_state = \
             inpt[idx_of_interest, :], unnormalized_inpt[idx_of_interest, :], \
             y[idx_of_interest, :]
-        not_zero_loc = np.where(unnormalized_inpt_this_state[:, 0] != 0)[0]
-        correct_ans = (-np.sign(unnormalized_inpt_this_state[not_zero_loc, 0]) +
+        not_zero_loc = np.where(unnormalized_inpt_this_state[:, stim_idx] != 0)[0]
+        correct_ans = (-np.sign(unnormalized_inpt_this_state[not_zero_loc, stim_idx]) +
                        1) / 2
         acc = np.sum(y_this_state[not_zero_loc,
                                   0] == correct_ans) / len(correct_ans)
@@ -92,6 +98,10 @@ if __name__ == '__main__':
         '#999999', '#e41a1c', '#dede00'
     ]
 
+    plt_xticks_location = np.arange(K+1)
+    plt_xticks_label = [str(x) for x in (plt_xticks_location + 1)]
+    plt_xticks_label = np.insert(plt_xticks_label,0,'All')
+    plt_xticks_label = plt_xticks_label[:-1]
     fig = plt.figure(figsize=(2, 2.2))
     plt.subplots_adjust(left=0.4, bottom=0.3, right=0.95, top=0.95)
     for z, acc in enumerate(accuracies_to_plot):
@@ -101,11 +111,11 @@ if __name__ == '__main__':
             col = cols[z - 1]
         plt.bar(z, acc*100, width=0.8, color=col)
     plt.ylim((50, 100))
-    plt.xticks([0, 1, 2, 3, 4], ['All', '1', '2', '3', '4'], fontsize=10)
+    plt.xticks(plt_xticks_location, plt_xticks_label, fontsize=10)
     plt.yticks([0, 25, 50, 75, 100], fontsize=10)
     plt.xlabel('state', fontsize=10)
     plt.ylabel('accuracy (%)', fontsize=10, labelpad=-0.5)
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
     # fig.savefig(figure_dir / ('fig2f_OM'+animal+'.png'))
-    fig.savefig(figure_dir / ('fig2f_OM'+animal), format='png', bbox_inches="tight")
+    fig.savefig(figure_dir / ('fig2f_'+root_folder_name+'_'+animal+'K'+str(K)+'.png'), format='png', bbox_inches="tight")

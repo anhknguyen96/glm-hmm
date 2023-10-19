@@ -15,7 +15,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -26,11 +26,11 @@ if __name__ == '__main__':
     # data_dir = '../../data/ibl/data_for_cluster/'
     # results_dir = '../../results/ibl_global_fit/'
 
-    num_lapse_params = 1
+    num_lapse_params = 2
     num_folds = 5
 
     # Fit GLM to all data
-    animal_file = global_data_dir /'all_animals_concat.npz'
+    animal_file = global_data_dir /'choice_all_animals_concat.npz'
     session_fold_lookup_table = load_session_fold_lookup(
         global_data_dir / 'all_animals_concat_session_fold_lookup.npz')
 

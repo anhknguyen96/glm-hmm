@@ -17,7 +17,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     if root_folder_name == 'om_accuracy':
         animal_file_name = 'acc_all_animals_concat.npz'
     else:
-        animal_file_name = 'all_animals_concat.npz'
+        animal_file_name = 'choice_all_animals_concat.npz'
 
     #  read in data and train/test split
     animal_file = data_dir / animal_file_name

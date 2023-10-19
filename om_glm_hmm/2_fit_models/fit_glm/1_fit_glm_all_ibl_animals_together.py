@@ -18,7 +18,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -35,8 +35,8 @@ if __name__ == '__main__':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
         animal_file_name = 'acc_all_animals_concat.npz'
     else:
-        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
-        animal_file_name = 'all_animals_concat.npz'
+        labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
+        animal_file_name = 'choice_all_animals_concat.npz'
 
     # Fit GLM to all data
     animal_file = data_dir / animal_file_name

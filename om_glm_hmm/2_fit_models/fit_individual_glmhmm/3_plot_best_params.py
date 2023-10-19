@@ -20,7 +20,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -33,13 +33,14 @@ if __name__ == '__main__':
         processed_file_name = 'acc_processed.npz'
         session_lookup_name = 'acc_session_fold_lookup.npz'
     else:
-        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
-        processed_file_name = '_processed.npz'
-        session_lookup_name = 'session_fold_lookup.npz'
+        labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
+        processed_file_name = 'choice_processed.npz'
+        session_lookup_name = 'choice_session_fold_lookup.npz'
 
     prior_sigma = 2
     transition_alpha = 2
-    K_max = 4
+
+    # labels_for_plot = ['stim', 'pc', 'wsls', 'bias']
 
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
     for animal in animal_list:
@@ -49,7 +50,7 @@ if __name__ == '__main__':
         cv_file = results_this_animal_dir / "cvbt_folds_model.npz"
         cvbt_folds_model = load_cv_arr(cv_file)
 
-        for K in range(2, K_max+1):
+        for K in range(2, 6):
             save_dir = results_dir / 'params_all_animals' / ('K_' + str(K))
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
@@ -180,7 +181,7 @@ if __name__ == '__main__':
             plt.legend(loc='upper right', fontsize=30)
             plt.tick_params(axis='y')
             plt.yticks([0.2, 0.3, 0.4, 0.5], fontsize=30)
-            # plt.ylim((0.2, 0.55))
+            plt.ylim((0.2, 0.55))
             plt.title("Model Comparison", fontsize=40)
 
             plt.subplot(1, 4, 4)

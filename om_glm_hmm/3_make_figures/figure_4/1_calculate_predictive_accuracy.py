@@ -20,7 +20,7 @@ from plotting_utils import load_glmhmm_data, load_animal_list, load_cv_arr, \
 cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306"]
 
 if __name__ == '__main__':
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -33,12 +33,12 @@ if __name__ == '__main__':
         processed_file_name = 'acc_processed.npz'
         session_lookup_name = 'acc_session_fold_lookup.npz'
     else:
-        processed_file_name = '_processed.npz'
-        session_lookup_name = 'session_fold_lookup.npz'
+        processed_file_name = 'choice_processed.npz'
+        session_lookup_name = 'choice_session_fold_lookup.npz'
 
     sigma_val = 2
     alpha_val = 2
-    K_max = 4
+    K_max = 5
     npr.seed(67)
 
     for animal in animal_list:

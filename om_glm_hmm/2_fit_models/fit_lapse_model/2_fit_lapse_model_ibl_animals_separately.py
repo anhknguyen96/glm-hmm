@@ -15,7 +15,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_choice_batch3'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
     data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
@@ -30,9 +30,9 @@ if __name__ == '__main__':
     # Fit GLM to all data
     for animal in animal_list:
         # Fit GLM to all data
-        animal_file = data_dir / (animal + '_processed.npz')
+        animal_file = data_dir / (animal + 'choice_processed.npz')
         session_fold_lookup_table = load_session_fold_lookup(
-            data_dir / (animal + '_session_fold_lookup.npz'))
+            data_dir / (animal + 'choice_session_fold_lookup.npz'))
 
         for fold in range(num_folds):
             overall_dir = results_dir / animal
@@ -40,7 +40,7 @@ if __name__ == '__main__':
             inpt, y, session = load_data(animal_file)
             y = y.astype('int')
 
-            labels_for_plot = ['stim', 'pc', 'wsls', 'bias']
+            labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
 
             sessions_to_keep = session_fold_lookup_table[np.where(
                 session_fold_lookup_table[:, 1] != fold), 0]

@@ -18,7 +18,7 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_name = str(sys.argv[1])
 
-    root_folder_name = 'om_accuracy'
+    root_folder_name = 'om_choice'
     root_data_dir = Path('../../data')
     root_result_dir = Path('../../results')
 
@@ -33,9 +33,9 @@ if __name__ == '__main__':
     if root_folder_name == 'om_accuracy':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
     else:
-        labels_for_plot = ['stim', 'P_C', 'WSLS', 'bias']
+        labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
 
-    K_max = 4  # maximum number of latent states
+    K_max = 5  # maximum number of latent states
     cv_file = results_dir / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
