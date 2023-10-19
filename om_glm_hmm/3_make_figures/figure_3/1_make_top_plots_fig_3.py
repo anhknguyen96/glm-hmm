@@ -2,7 +2,7 @@
 import json
 import os
 import sys
-
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -14,21 +14,32 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
 
 
 if __name__ == '__main__':
-    animal = "CSHL_008"
-    K = 3
+    animal = "12.0"
+    K = 2
 
-    data_dir = '../../data/ibl/data_for_cluster/data_by_animal/'
-    results_dir = '../../results/ibl_individual_fit/' + animal + '/'
-    figure_dir = '../../figures/figure_3/'
+    root_folder_name = 'om_choice'
+    root_data_dir = Path('../../data')
+    root_result_dir = Path('../../results')
+    figure_dir = Path('../../figures/figure_3')
     if not os.path.exists(figure_dir):
         os.makedirs(figure_dir)
 
+    data_dir = root_data_dir / root_folder_name / (root_folder_name + '_data_for_cluster') / 'data_by_animal'
+    results_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit') / animal
+    if root_folder_name == 'om_accuracy':
+        processed_file_name = 'acc_processed.npz'
+        animal_data = 'acc_unnormalized.npz'
+        stim_idx = 0
+    else:
+        processed_file_name = 'choice_processed.npz'
+        animal_data = 'choice_unnormalized.npz'
+        stim_idx = 2
     np.random.seed(59)
 
-    cv_file = results_dir + "/cvbt_folds_model.npz"
+    cv_file = results_dir / "cvbt_folds_model.npz"
     cvbt_folds_model = load_cv_arr(cv_file)
 
-    with open(results_dir + "/best_init_cvbt_dict.json", 'r') as f:
+    with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
         best_init_cvbt_dict = json.load(f)
 
     # Get the file name corresponding to the best initialization for given K
@@ -44,7 +55,7 @@ if __name__ == '__main__':
     init_state_dist = hmm_params[0][0]
 
     # Also get data for animal:
-    inpt, y, session = load_data(data_dir + animal + '_processed.npz')
+    inpt, y, session = load_data(data_dir / (animal + processed_file_name))
     all_sessions = np.unique(session)
     # Create mask:
     # Identify violations for exclusion:
@@ -60,11 +71,13 @@ if __name__ == '__main__':
                                              hmm_params, K, range(K))
     states_max_posterior = np.argmax(posterior_probs, axis=1)
 
-    sess_to_plot = ["CSHL_008-2019-04-29-001", "CSHL_008-2019-08-07-001",
-                    "CSHL_008-2019-05-28-001"]
+    sess_to_plot = ["m12.0s21.0", "m12.0s38.0",
+                    "m12.0s14.0"]
 
-    cols = ['#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-            '#999999', '#e41a1c', '#dede00']
+    cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
+            '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
+            '#999999', '#e41a1c', '#dede00'
+            ]
     fig = plt.figure(figsize=(6, 5))
     plt.subplots_adjust(wspace=0.2, hspace=0.9)
     for i, sess in enumerate(sess_to_plot):
@@ -120,13 +133,13 @@ if __name__ == '__main__':
             plt.xticks([0, 45, 90], ["", "", ""], fontsize=10)
             plt.yticks([0, 0.5, 1], ["", "", ""], fontsize=10)
         plt.ylim((-0.01, 1.01))
-        plt.title("example session " + str(i + 1), fontsize=10)
+        plt.title("example session " + str(i), fontsize=10)
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
         if i == 0:
             plt.xlabel("trial #", fontsize=10)
             plt.ylabel("p(state)", fontsize=10)
-
+        plt.show()
     # Now plot avg session:
     posterior_probs_mat = []
     for i, sess in enumerate(all_sessions):
@@ -155,4 +168,4 @@ if __name__ == '__main__':
     plt.ylabel("p(state)", fontsize=10)
     plt.xticks([0, 45, 90], ["0", "45", "90"], fontsize=10)
     plt.yticks([0, 0.5, 1], ["0", "0.5", "1"], fontsize=10)
-    fig.savefig(figure_dir + 'fig3abc.pdf')
+    fig.savefig(figure_dir / ('fig3abc_'+root_folder_name+'_'+animal+'K'+str(K)+'.png'), format='png', bbox_inches="tight")

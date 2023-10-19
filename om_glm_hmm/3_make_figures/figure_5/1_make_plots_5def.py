@@ -52,11 +52,11 @@ if __name__ == '__main__':
         '#999999', '#e41a1c', '#dede00'
     ]
 
-    K = 2
+    K = 3
     D, M, C = 1, len(labels_for_plot)-1, 2
     # ============ GLM weights ==================
     global_weights = get_global_weights(global_results_dir, K)
-    fig = plt.figure(figsize=(7, 5))
+    fig = plt.figure(figsize=(6.5, 6))
     plt.subplots_adjust(left=0.1,
                         bottom=0.2,
                         right=0.95,
@@ -94,35 +94,35 @@ if __name__ == '__main__':
                    fontsize=10,
                    rotation=20)
         plt.ylabel("GLM weight", fontsize=10)
-        # if k == 0:
-        #     plt.yticks([-2, 0, 2, 4], fontsize=10)
-        #     plt.xticks(np.arange(len(labels_for_plot)), labels_for_plot,
-        #                fontsize=10,
-        #                rotation=20)
-        #     plt.ylabel("GLM weight", fontsize=10)
-        # else:
-        #     plt.yticks([-4, -2, 0, 2, 4], ['','', '', '', ''])
-        #     plt.xticks(np.arange(len(labels_for_plot)), ['']*len(labels_for_plot))
+        if k == 0:
+            plt.yticks([-2, 0, 2, 4], fontsize=10)
+            plt.xticks(np.arange(len(labels_for_plot)), labels_for_plot,
+                       fontsize=10,
+                       rotation=20)
+            plt.ylabel("GLM weight", fontsize=10)
+        else:
+            plt.yticks([-4, -2, 0, 2, 4], ['','', '', '', ''])
+            plt.xticks(np.arange(len(labels_for_plot)), ['']*len(labels_for_plot))
         plt.title("state " + str(k + 1), fontsize=10, color=cols[k])
-        # plt.plot(range(M + 1),
-        #          global_weights[k][0][np.arange(len(labels_for_plot))],
-        #          '-o',
-        #          color='k',
-        #          lw=1.3,
-        #          alpha=1,
-        #          markersize=3,
-        #          label='global')
+        plt.plot(range(M + 1),
+                 global_weights[k][0][np.arange(len(labels_for_plot))],
+                 '-o',
+                 color='k',
+                 lw=1.3,
+                 alpha=1,
+                 markersize=3,
+                 label='global')
         plt.axhline(y=0, color="k", alpha=0.5, ls="--", linewidth=0.75)
-        # if k == 1:
-        #     plt.legend(fontsize=10,
-        #                labelspacing=0.2,
-        #                handlelength=1,
-        #                borderaxespad=0.2,
-        #                borderpad=0.2,
-        #                framealpha=0,
-        #                bbox_to_anchor=(0.53, 1),
-        #                handletextpad=0.2,
-        #                loc='upper left')
+        if k == 1:
+            plt.legend(fontsize=10,
+                       labelspacing=0.2,
+                       handlelength=1,
+                       borderaxespad=0.2,
+                       borderpad=0.2,
+                       framealpha=0,
+                       bbox_to_anchor=(0.53, 1),
+                       handletextpad=0.2,
+                       loc='upper left')
         plt.gca().spines['right'].set_visible(False)
         plt.gca().spines['top'].set_visible(False)
         plt.ylim((-4, 4))
