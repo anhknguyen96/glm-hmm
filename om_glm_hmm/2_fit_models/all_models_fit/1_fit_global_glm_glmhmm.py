@@ -44,27 +44,29 @@ def create_cluster_job(N_initializations,K_vals,num_folds,data_dir):
              cluster_job_arr)
 
 if __name__ == '__main__':
-    # if len(sys.argv)==1:
-    #     print('Please specify the data folder you want')
-    #     exit()
-    # root_folder_name = str(sys.argv[1])
+    if len(sys.argv)==1:
+        print('Please specify the data folder you want')
+        exit()
+    root_folder_dir = str(sys.argv[1])
 
     root_folder_name = 'om_choice'
-    root_data_dir = Path('../../data')
-    root_result_dir = Path('../../results')
+    root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
+    root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
+    # root_data_dir = Path('../../data')
+    # root_result_dir = Path('../../results')
 
-    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster')
+    data_dir = root_data_dir / (root_folder_name +'_data_for_cluster')
     # Create directory for results:
-    results_dir = root_result_dir / root_folder_name / (root_folder_name +'_global_fit')
+    results_dir = root_result_dir / (root_folder_name +'_global_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
+        os.makedirs(data_dir)
 
     num_folds = 5
     K_vals = [2, 3, 4, 5]
-    N_initializations = 20
 
     # Create cluster jobs to run global glm-hmm fit later
-    create_cluster_job(N_initializations,K_vals,num_folds,data_dir)
+    create_cluster_job(N_initializations=20,K_vals=K_vals,num_folds=num_folds,data_dir=data_dir)
 
     # Subset to relevant covariates for covar set of interest:
     if root_folder_name == 'om_accuracy':
@@ -75,7 +77,7 @@ if __name__ == '__main__':
         animal_file_name = 'choice_all_animals_concat.npz'
 
     ###################################################################################
-    # Fit GLM to all data
+    # FIT GLOBAL GLM
     animal_file = data_dir / animal_file_name
     inpt, y, session = load_data(animal_file)
     session_fold_lookup_table = load_session_fold_lookup(
@@ -124,13 +126,14 @@ if __name__ == '__main__':
                 '.npz'), loglikelihood_train, recovered_weights)
 
     ###################################################################################
-    # fit global glm-hmm
+    # FIT GLOBAL GLM-HMM
     # Load external files:
     cluster_arr_file = data_dir / 'cluster_job_arr.npz'
     # Load cluster array job parameters:
     cluster_arr = load_cluster_arr(cluster_arr_file)
 
     #  append a column of ones to inpt to represent the bias covariate:
+    # we did not do that in fitting global glm because the glm function already had this in place
     inpt = np.hstack((inpt, np.ones((len(inpt), 1))))
     y = y.astype('int')
     # Identify violations for exclusion:
@@ -168,7 +171,7 @@ if __name__ == '__main__':
                            save_directory)
 
     ###################################################################################
-    # run global glm-hmm post processing
+    # RUN GLOBAL GLM-HMM POST PROCESSING
     cvbt_folds_model = np.zeros((num_models, num_folds))
     cvbt_train_folds_model = np.zeros((num_models, num_folds))
 
@@ -233,9 +236,7 @@ if __name__ == '__main__':
              cvbt_train_folds_model)
 
     ###################################################################################
-    # get best params for individual initialization
-    cv_file = results_dir / "cvbt_folds_model.npz"
-    cvbt_folds_model = load_cv_arr(cv_file)
+    # GET BEST PARAMS FOR INDIVIDUAL INITIALIZATION
     save_directory = data_dir / "best_global_params"
 
     for K in range(2, K_max + 1):
