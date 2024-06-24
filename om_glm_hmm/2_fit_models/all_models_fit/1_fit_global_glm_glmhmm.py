@@ -44,10 +44,11 @@ def create_cluster_job(N_initializations,K_vals,num_folds,data_dir):
              cluster_job_arr)
 
 if __name__ == '__main__':
-    if len(sys.argv)==1:
-        print('Please specify the data folder you want')
-        exit()
-    root_folder_dir = str(sys.argv[1])
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_dir = str(sys.argv[1])
+    root_folder_dir = '/home/anh/Documents/phd'
 
     root_folder_name = 'om_choice'
     root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
@@ -60,7 +61,6 @@ if __name__ == '__main__':
     results_dir = root_result_dir / (root_folder_name +'_global_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-        os.makedirs(data_dir)
 
     num_folds = 5
     K_vals = [2, 3, 4, 5]
@@ -71,18 +71,17 @@ if __name__ == '__main__':
     # Subset to relevant covariates for covar set of interest:
     if root_folder_name == 'om_accuracy':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
-        animal_file_name = 'acc_all_animals_concat.npz'
     else:
-        labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
-        animal_file_name = 'choice_all_animals_concat.npz'
+        labels_for_plot = ['prev-fail','stim', 'stim:prev-fail', 'prev-choice', 'bias']
 
-    ###################################################################################
-    # FIT GLOBAL GLM
+    animal_file_name = 'all_animals_concat.npz'
     animal_file = data_dir / animal_file_name
     inpt, y, session = load_data(animal_file)
     session_fold_lookup_table = load_session_fold_lookup(
         data_dir / 'all_animals_concat_session_fold_lookup.npz')
 
+    ###################################################################################
+    # FIT GLOBAL GLM
     for fold in range(num_folds):
 
         # y = y.astype('int')
@@ -134,7 +133,7 @@ if __name__ == '__main__':
 
     #  append a column of ones to inpt to represent the bias covariate:
     # we did not do that in fitting global glm because the glm function already had this in place
-    inpt = np.hstack((inpt, np.ones((len(inpt), 1))))
+    inpt_mod = np.hstack((inpt, np.ones((len(inpt), 1))))
     y = y.astype('int')
     # Identify violations for exclusion:
     violation_idx = np.where(y == -1)[0]
@@ -153,7 +152,7 @@ if __name__ == '__main__':
         if not os.path.exists(save_directory):
             os.makedirs(save_directory)
 
-        launch_glm_hmm_job(inpt,
+        launch_glm_hmm_job(inpt_mod,
                            y,
                            session,
                            mask,
@@ -170,7 +169,7 @@ if __name__ == '__main__':
                            init_param_file,
                            save_directory)
 
-    ###################################################################################
+    # ###################################################################################
     # RUN GLOBAL GLM-HMM POST PROCESSING
     cvbt_folds_model = np.zeros((num_models, num_folds))
     cvbt_train_folds_model = np.zeros((num_models, num_folds))
@@ -208,7 +207,8 @@ if __name__ == '__main__':
             elif model == "GLM_HMM":
                 for K in range(2, K_max + 1):
                     print("K = " + str(K))
-                    model_idx = 3 + (K - 2)
+                    # the first index is GLM, next are the K-states GLM-hmm
+                    model_idx = K-1
                     cvbt_folds_model[model_idx, fold], \
                         cvbt_train_folds_model[
                             model_idx, fold], _, _, init_ordering_by_train = \
@@ -238,6 +238,9 @@ if __name__ == '__main__':
     ###################################################################################
     # GET BEST PARAMS FOR INDIVIDUAL INITIALIZATION
     save_directory = data_dir / "best_global_params"
+
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
 
     for K in range(2, K_max + 1):
         print("K = " + str(K))

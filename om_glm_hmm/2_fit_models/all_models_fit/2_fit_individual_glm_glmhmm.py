@@ -2,41 +2,82 @@
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import os
+import json
 from pathlib import Path
 from glm_utils import load_session_fold_lookup, load_data, load_animal_list, \
     fit_glm, plot_input_vectors, append_zeros
-
+from glm_hmm_utils import load_cluster_arr, load_session_fold_lookup, \
+            load_animal_list, load_data, create_violation_mask, \
+            launch_glm_hmm_job
+from glm_hmm_utils import load_animal_list
+from post_processing_utils import load_data, load_session_fold_lookup, \
+    prepare_data_for_cv, calculate_baseline_test_ll, \
+    calculate_glm_test_loglikelihood, calculate_cv_bit_trial, \
+    return_glmhmm_nll, return_lapse_nll
 npr.seed(65)
 
+###################################################################################
+# PARAMETERS
+# individual glm fit
 C = 2  # number of output types/categories
 N_initializations = 10
+num_folds = 5
+
+# create cluster job individual glmhmm fit
+prior_sigma = [2]
+transition_alpha = [2]
+K_vals = [2, 3, 4, 5]
+N_em_iters = 300  # number of EM iterations
+
+# post processing individual glmhmm fit
+D = 1  # number of output dimensions
+K_max = 5  # number of latent states
+num_models = K_max # model for each latent
+models_list = ["GLM", "GLM_HMM"]
+
+def create_cluster_job_individual_fit(N_initializations,K_vals,num_folds,prior_sigma,transition_alpha,data_dir):
+    cluster_job_arr = []
+    for K in K_vals:
+        for i in range(num_folds):
+            for j in range(N_initializations):
+                for sigma in prior_sigma:
+                    for alpha in transition_alpha:
+                        cluster_job_arr.append([sigma, alpha, K, i, j])
+    np.savez(data_dir / 'cluster_job_arr.npz',
+             cluster_job_arr)
+    print(len(cluster_job_arr))
 
 if __name__ == '__main__':
     # if len(sys.argv)==1:
     #     print('Please specify the data folder you want')
     #     exit()
-    # root_folder_name = str(sys.argv[1])
+    # root_folder_dir = str(sys.argv[1])
+    root_folder_dir = '/home/anh/Documents/phd'
 
     root_folder_name = 'om_choice'
-    root_data_dir = Path('../../data')
-    root_result_dir = Path('../../results')
-    data_dir = root_data_dir / root_folder_name / (root_folder_name +'_data_for_cluster') / 'data_by_animal'
+    root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
+    root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
+    global_data_dir = root_data_dir /  (root_folder_name + '_data_for_cluster')
+    data_dir = global_data_dir / 'data_by_animal'
 
-    num_folds = 5
+
     animal_list = load_animal_list(data_dir / 'animal_list.npz')
+    processed_file_name = '_processed.npz'
+    session_lookup_name = '_session_fold_lookup.npz'
 
-    results_dir = root_result_dir / root_folder_name / (root_folder_name + '_individual_fit')
+    # Create cluster jobs to run individual glm-hmm fit later
+    create_cluster_job_individual_fit(N_initializations=2,K_vals=K_vals,num_folds=num_folds,prior_sigma=prior_sigma,transition_alpha=transition_alpha,data_dir=data_dir)
+
+    # Create directory for results:
+    results_dir = root_result_dir/ (root_folder_name + '_individual_fit')
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
     if root_folder_name == 'om_accuracy':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
-        processed_file_name = 'acc_processed.npz'
-        session_lookup_name = 'acc_session_fold_lookup.npz'
     else:
-        labels_for_plot = ['prev-fail', 'prev-choice', 'stim', 'stim:prev-fail','bias']
-        processed_file_name = 'choice_processed.npz'
-        session_lookup_name = 'choice_session_fold_lookup.npz'
+        labels_for_plot = ['prev-fail', 'stim', 'stim:prev-fail', 'prev-choice','bias']
+
 
     for animal in animal_list:
         # Fit GLM to data from single animal:
@@ -87,3 +128,143 @@ if __name__ == '__main__':
                 np.savez(
                     figure_directory / ('variables_of_interest_iter_' +
                     str(iter) + '.npz'), loglikelihood_train, recovered_weights)
+
+
+    ###################################################################################
+    # FIT INDIVIDUAL GLM-HMM
+    # Load external files:
+    cluster_arr_file = data_dir / 'cluster_job_arr.npz'
+    # Load cluster array job parameters:
+    cluster_arr = load_cluster_arr(cluster_arr_file)
+
+    for z in range(cluster_arr.shape[0]):
+        [prior_sigma, transition_alpha, K, fold, iter] = cluster_arr[z]
+
+        iter = int(iter)
+        fold = int(fold)
+        K = int(K)
+
+        animal_list = load_animal_list(data_dir / 'animal_list.npz')
+
+        for i, animal in enumerate(animal_list):
+            print(animal)
+            animal_file = data_dir / (animal + processed_file_name)
+            session_fold_lookup_table = load_session_fold_lookup(
+                data_dir / (animal + session_lookup_name))
+
+            global_fit = False
+
+            inpt, y, session = load_data(animal_file)
+            #  append a column of ones to inpt to represent the bias covariate:
+            inpt = np.hstack((inpt, np.ones((len(inpt), 1))))
+            y = y.astype('int')
+
+            overall_dir = results_dir / animal
+
+            # Identify violations for exclusion:
+            violation_idx = np.where(y == -1)[0]
+            nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                           inpt.shape[0])
+
+            init_param_file = global_data_dir / ('best_global_params/best_params_K_' + str(K) + '.npz')
+
+            # create save directory for this initialization/fold combination:
+            save_directory = overall_dir / ('GLM_HMM_K_' + str(
+                K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
+            if not os.path.exists(save_directory):
+                os.makedirs(save_directory)
+
+            launch_glm_hmm_job(inpt, y, session, mask, session_fold_lookup_table,
+                               K, D, C, N_em_iters, transition_alpha, prior_sigma,
+                               fold, iter, global_fit, init_param_file,
+                               save_directory)
+    ###################################################################################
+    # RUN INDIVIDUAL GLM-HMM POST PROCESSING
+
+    for animal in animal_list:
+        overall_dir = results_dir / animal
+        # Load data
+        inpt, y, session = load_data(data_dir / (animal + processed_file_name))
+        session_fold_lookup_table = load_session_fold_lookup(
+            data_dir / (animal + session_lookup_name))
+
+        animal_preferred_model_dict = {}
+
+        cvbt_folds_model = np.zeros((num_models, num_folds))
+        cvbt_train_folds_model = np.zeros((num_models, num_folds))
+
+        # Save best initialization for each model-fold combination
+        best_init_cvbt_dict = {}
+        for fold in range(num_folds):
+            print("fold = " + str(fold))
+            test_inpt, test_y, test_nonviolation_mask, \
+            this_test_session, train_inpt, train_y, \
+            train_nonviolation_mask, this_train_session, M, n_test, \
+            n_train = prepare_data_for_cv(
+                inpt, y, session, session_fold_lookup_table, fold)
+            ll0 = calculate_baseline_test_ll(
+                train_y[train_nonviolation_mask == 1, :],
+                test_y[test_nonviolation_mask == 1, :], C)
+            ll0_train = calculate_baseline_test_ll(
+                train_y[train_nonviolation_mask == 1, :],
+                train_y[train_nonviolation_mask == 1, :], C)
+            for model in models_list:
+                print("model = " + str(model))
+                if model == "GLM":
+                    # Load parameters and instantiate a new GLM
+                    # object with these parameters
+                    glm_weights_file = overall_dir / \
+                                       'GLM' / ('fold_' + str(fold)) / 'variables_of_interest_iter_0.npz'
+                    ll_glm = calculate_glm_test_loglikelihood(
+                        glm_weights_file,
+                        test_y[test_nonviolation_mask == 1, :],
+                        test_inpt[test_nonviolation_mask == 1, :], M, C)
+                    ll_glm_train = calculate_glm_test_loglikelihood(
+                        glm_weights_file,
+                        train_y[train_nonviolation_mask == 1, :],
+                        train_inpt[train_nonviolation_mask == 1, :], M, C)
+                    cvbt_folds_model[0, fold] = calculate_cv_bit_trial(
+                        ll_glm, ll0, n_test)
+                    cvbt_train_folds_model[0, fold] = calculate_cv_bit_trial(
+                        ll_glm_train, ll0_train, n_train)
+                elif model == "Lapse_Model":
+                    # One lapse parameter model:
+                    cvbt_folds_model[1, fold], cvbt_train_folds_model[
+                        1, fold], _, _ = return_lapse_nll(
+                            inpt, y, session, session_fold_lookup_table, fold,
+                            1, overall_dir, C)
+                    # Two lapse parameter model:
+                    cvbt_folds_model[2, fold], cvbt_train_folds_model[
+                        2, fold], _, _ = return_lapse_nll(
+                            inpt, y, session, session_fold_lookup_table, fold,
+                            2, overall_dir, C)
+                elif model == "GLM_HMM":
+                    for K in range(2, K_max+1):
+                        print("K = "+ str(K))
+                        model_idx = 3 + (K - 2)
+                        cvbt_folds_model[model_idx, fold], \
+                        cvbt_train_folds_model[
+                            model_idx, fold], _, _, \
+                        init_ordering_by_train = return_glmhmm_nll(
+                            np.hstack((inpt, np.ones((len(inpt), 1)))), y, session,
+                            session_fold_lookup_table, fold, K, D, C,
+                            overall_dir)
+                        # Save best initialization to dictionary for
+                        # later:
+                        key_for_dict = '/GLM_HMM_K_' + str(K) + '/fold_' + str(
+                            fold)
+                        best_init_cvbt_dict[key_for_dict] = int(
+                            init_ordering_by_train[0])
+        # Save best initialization directories across animals,
+        # folds and models (only GLM-HMM):
+        print(cvbt_folds_model)
+        print(cvbt_train_folds_model)
+        json_dump = json.dumps(best_init_cvbt_dict)
+        f = open(overall_dir / "best_init_cvbt_dict.json", "w")
+        f.write(json_dump)
+        f.close()
+        # Save cvbt_folds_model as numpy array for easy parsing
+        # across all models and folds
+        np.savez(overall_dir / "cvbt_folds_model.npz", cvbt_folds_model)
+        np.savez(overall_dir / "cvbt_train_folds_model.npz",
+                 cvbt_train_folds_model)

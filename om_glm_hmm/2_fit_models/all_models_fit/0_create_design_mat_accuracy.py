@@ -10,11 +10,11 @@ import scipy
 
 file_path = '/home/anh/Documents/phd/outcome_manip_git/data/om_all_batch1&2&3&4_rawrows.csv'
 if __name__ == '__main__':
-    if len(sys.argv)==1:
-        print('Please specify the data folder you want')
-        exit()
-    root_folder_dir = str(sys.argv[1])
-
+    # if len(sys.argv)==1:
+    #     print('Please specify the data folder you want')
+    #     exit()
+    # root_folder_dir = str(sys.argv[1])
+    root_folder_dir = '/home/anh/Documents/phd'
     root_folder_name = 'om_choice'
     root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
     root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # clean data
     data_batch12 = om.loc[(om.mouse_id < 13) & (om.lick_side_freq != -2) & (om.prev_choice != -2) & (om.prev_reward_prob == 0.5) & (om.prev_choice2 != -2)]
     data_batch34 = om.loc[(om.mouse_id > 13) & (om.prev_om_gen == 0) & (om.lick_side_freq != -2) & (om.prev_choice != -2) & (om.prev_reward_prob == 0.5) & (om.prev_choice2 != -2)]
-    om_cleaned = pd.concat[(data_batch12,data_batch34)].reset_index()
+    om_cleaned = pd.concat([data_batch12,data_batch34],ignore_index=True)
     # now take care of predictors
     index = om_cleaned.index
     om_cleaned['prev_failure'] = om_cleaned['prev_failure'].astype('int')
@@ -55,10 +55,10 @@ if __name__ == '__main__':
     animal_eid_dict = animal_df.groupby('mouse_id')['session_identifier'].apply(list).to_dict()
     animal_list = om_cleaned.mouse_id.unique()
     json = json.dumps(animal_eid_dict)
-    f = open(data_dir / 'partially_processed' /'animal_eid_dict.json',  "w")
-    f.write(json)
-    f.close()
+    f = open(data_dir / 'partially_processed' /'animal_eid_dict.json',  "w"); f.write(json); f.close()
+    f = open(data_dir / 'data_by_animal' / 'animal_eid_dict.json', "w"); f.write(json); f.close()
     np.savez(data_dir / 'partially_processed'/ 'animal_list.npz', animal_list)
+    np.savez(data_dir / 'data_by_animal' / 'animal_list.npz', animal_list)
 
     # create predictors matrix for model fitting
     choice_or_accuracy = 'choice'
@@ -68,16 +68,20 @@ if __name__ == '__main__':
     else:
         formula = 'lick_side_freq ~ -1 + z_freq_trans + C(prev_failure) + z_freq_trans:C(prev_failure) + z_prev_choice'
         formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + C(prev_failure) + freq_trans:C(prev_failure) + z_prev_choice'
-    for mouse_id in range(len(animal_list)):
+    for mouse_index in range(len(animal_list)):
         # subselect and clean data based on mouse id
-        om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == animal_list[mouse_id]].copy().reset_index()
+        om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == animal_list[mouse_index]].copy().reset_index()
         T = len(om_tmp)
         # create predictor matrix from formula using patsy
-        outcome, predictors = dmatrices(formula_unnormalized, om_tmp, return_type='dataframe')
+        outcome, predictors = dmatrices(formula, om_tmp, return_type='dataframe')
+        print(predictors.columns)
+        # skip the first column because it is pfail 0
         get_col = predictors.columns[1:].to_list()
         design_mat = np.asarray(predictors[get_col])
         # create predictor matrix from formula using patsy - unnormalized predictors
-        _, predictors_unnorm = dmatrices(formula, om_tmp, return_type='dataframe')
+        _, predictors_unnorm = dmatrices(formula_unnormalized, om_tmp, return_type='dataframe')
+        print(predictors_unnorm.columns)
+        # skip the first column because it is pfail 0
         get_col_unnorm = predictors_unnorm.columns[1:].to_list()
         design_mat_unnorm = np.asarray(predictors_unnorm[get_col_unnorm])
 
@@ -85,17 +89,17 @@ if __name__ == '__main__':
         session = np.array(om_tmp.session_identifier)
         rewarded = np.array(om_tmp.success)
 
-        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_processed.npz'),
+        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_index] + '_processed.npz'),
                  design_mat, y,
                  session)
-        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_unnormalized.npz'),
+        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_index] + '_unnormalized.npz'),
                  design_mat_unnorm, y,
                  session)
-        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + '_rewarded.npz'),
+        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_index] + '_rewarded.npz'),
                  rewarded)
         animal_session_fold_lookup = create_train_test_sessions(session,
                                                                 5)
-        if mouse_id == 0:
+        if mouse_index == 0:
             master_session_fold_lookup_table = animal_session_fold_lookup
             master_y = np.copy(y)
             master_inpt = design_mat
@@ -105,12 +109,12 @@ if __name__ == '__main__':
         else:
             master_y = np.vstack((master_y, y))
             master_inpt = np.vstack((master_inpt, design_mat))
-            master_inpt_unnorm = np.vstack((master_inpt_unnorm, master_inpt_unnorm))
+            master_inpt_unnorm = np.vstack((master_inpt_unnorm, design_mat_unnorm))
             master_session= np.concatenate((master_session,session))
             master_rewarded = np.concatenate((master_rewarded,rewarded))
             master_session_fold_lookup_table = np.vstack(
             (master_session_fold_lookup_table, animal_session_fold_lookup))
-        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_id] + choice_or_accuracy +
+        np.savez(data_dir / 'data_by_animal' / (animal_list[mouse_index] +
                  "_session_fold_lookup" +
                  ".npz"),
                  animal_session_fold_lookup)
@@ -126,12 +130,3 @@ if __name__ == '__main__':
     np.savez(
         data_dir / 'all_animals_concat_session_fold_lookup.npz',
         master_session_fold_lookup_table)
-
-    # this is for when the animal minmum data condition is considered
-    np.savez(data_dir / 'data_by_animal' / 'animal_list.npz',
-             animal_list)
-    final_animal_eid_dict = animal_eid_dict
-    json = json.dumps(final_animal_eid_dict)
-    f = open(data_dir / "final_animal_eid_dict.json", "w")
-    f.write(json)
-    f.close()
