@@ -2,6 +2,7 @@
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import os
+import multiprocessing as mp
 import json
 from pathlib import Path
 from glm_utils import load_session_fold_lookup, load_data, load_animal_list, \
@@ -28,6 +29,7 @@ prior_sigma = [2]
 transition_alpha = [2]
 K_vals = [2, 3, 4, 5]
 N_em_iters = 300  # number of EM iterations
+n_processes = 15
 
 # post processing individual glmhmm fit
 D = 1  # number of output dimensions
@@ -46,6 +48,26 @@ def create_cluster_job_individual_fit(N_initializations,K_vals,num_folds,prior_s
     np.savez(data_dir / 'cluster_job_arr.npz',
              cluster_job_arr)
     print(len(cluster_job_arr))
+
+def launch_multiple_individual_hmmjob(cluster_arr_sep, inpt_mod, y, session, mask, session_fold_lookup_table,
+                               D, C, N_em_iters, global_fit,global_data_dir, overall_dir):
+    [prior_sigma, transition_alpha, K, fold, iter] = cluster_arr_sep
+
+    iter = int(iter)
+    fold = int(fold)
+    K = int(K)
+    init_param_file = global_data_dir / ('best_global_params/best_params_K_' + str(K) + '.npz')
+
+    # create save directory for this initialization/fold combination:
+    save_directory = overall_dir / ('GLM_HMM_K_' + str(
+        K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+
+    launch_glm_hmm_job(inpt_mod, y, session, mask, session_fold_lookup_table,
+                       K, D, C, N_em_iters, transition_alpha, prior_sigma,
+                       fold, iter, global_fit, init_param_file,
+                       save_directory)
 
 if __name__ == '__main__':
     # if len(sys.argv)==1:
@@ -137,47 +159,38 @@ if __name__ == '__main__':
     # Load cluster array job parameters:
     cluster_arr = load_cluster_arr(cluster_arr_file)
 
-    for z in range(cluster_arr.shape[0]):
-        [prior_sigma, transition_alpha, K, fold, iter] = cluster_arr[z]
+    animal_list = load_animal_list(data_dir / 'animal_list.npz')
+    for i, animal in enumerate(animal_list):
+        print(animal)
+        animal_file = data_dir / (animal + processed_file_name)
+        session_fold_lookup_table = load_session_fold_lookup(
+            data_dir / (animal + session_lookup_name))
 
-        iter = int(iter)
-        fold = int(fold)
-        K = int(K)
+        global_fit = False
 
-        animal_list = load_animal_list(data_dir / 'animal_list.npz')
+        inpt, y, session = load_data(animal_file)
+        #  append a column of ones to inpt to represent the bias covariate:
+        inpt_mod = np.hstack((inpt, np.ones((len(inpt), 1))))
+        y = y.astype('int')
 
-        for i, animal in enumerate(animal_list):
-            print(animal)
-            animal_file = data_dir / (animal + processed_file_name)
-            session_fold_lookup_table = load_session_fold_lookup(
-                data_dir / (animal + session_lookup_name))
+        overall_dir = results_dir / animal
 
-            global_fit = False
+        # Identify violations for exclusion:
+        violation_idx = np.where(y == -1)[0]
+        nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                       inpt.shape[0])
 
-            inpt, y, session = load_data(animal_file)
-            #  append a column of ones to inpt to represent the bias covariate:
-            inpt = np.hstack((inpt, np.ones((len(inpt), 1))))
-            y = y.astype('int')
-
-            overall_dir = results_dir / animal
-
-            # Identify violations for exclusion:
-            violation_idx = np.where(y == -1)[0]
-            nonviolation_idx, mask = create_violation_mask(violation_idx,
-                                                           inpt.shape[0])
-
-            init_param_file = global_data_dir / ('best_global_params/best_params_K_' + str(K) + '.npz')
-
-            # create save directory for this initialization/fold combination:
-            save_directory = overall_dir / ('GLM_HMM_K_' + str(
-                K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
-            if not os.path.exists(save_directory):
-                os.makedirs(save_directory)
-
-            launch_glm_hmm_job(inpt, y, session, mask, session_fold_lookup_table,
-                               K, D, C, N_em_iters, transition_alpha, prior_sigma,
-                               fold, iter, global_fit, init_param_file,
-                               save_directory)
+        iterables = [(cluster_arr_sep, inpt_mod, y, session, mask, session_fold_lookup_table,
+                               D, C, N_em_iters, global_fit,global_data_dir, overall_dir)
+                     for cluster_arr_sep in cluster_arr]
+        # initialize multiple processes
+        pool = mp.Pool(n_processes)
+        # launch multiple processes - starmap allows for multiple argumetns
+        pool.starmap(launch_multiple_individual_hmmjob, iterables)
+        # Close the pool for new tasks
+        pool.close()
+        # Wait for all tasks to complete at this point
+        pool.join()
     ###################################################################################
     # RUN INDIVIDUAL GLM-HMM POST PROCESSING
 
@@ -227,21 +240,10 @@ if __name__ == '__main__':
                         ll_glm, ll0, n_test)
                     cvbt_train_folds_model[0, fold] = calculate_cv_bit_trial(
                         ll_glm_train, ll0_train, n_train)
-                elif model == "Lapse_Model":
-                    # One lapse parameter model:
-                    cvbt_folds_model[1, fold], cvbt_train_folds_model[
-                        1, fold], _, _ = return_lapse_nll(
-                            inpt, y, session, session_fold_lookup_table, fold,
-                            1, overall_dir, C)
-                    # Two lapse parameter model:
-                    cvbt_folds_model[2, fold], cvbt_train_folds_model[
-                        2, fold], _, _ = return_lapse_nll(
-                            inpt, y, session, session_fold_lookup_table, fold,
-                            2, overall_dir, C)
                 elif model == "GLM_HMM":
                     for K in range(2, K_max+1):
                         print("K = "+ str(K))
-                        model_idx = 3 + (K - 2)
+                        model_idx = K-1
                         cvbt_folds_model[model_idx, fold], \
                         cvbt_train_folds_model[
                             model_idx, fold], _, _, \

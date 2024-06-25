@@ -4,6 +4,7 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 import os
 import json
+import multiprocessing as mp
 import sys
 from glm_utils import load_session_fold_lookup, load_data, fit_glm, \
     plot_input_vectors, append_zeros
@@ -29,6 +30,7 @@ N_em_iters = 300  # number of EM iterations
 global_fit = True
 transition_alpha = 1
 prior_sigma = 100
+n_processes = 15  # number of processes for multiprocessing
 
 # for global glm-hmm post processing
 K_max = 5  # maximum number of latent states
@@ -42,6 +44,36 @@ def create_cluster_job(N_initializations,K_vals,num_folds,data_dir):
                 cluster_job_arr.append([K, i, j])
     np.savez(data_dir / "cluster_job_arr.npz",
              cluster_job_arr)
+
+def launch_multiple_hmmjob(cluster_arr_sep, results_dir, inpt_mod, y, session,mask,
+                       session_fold_lookup_table,D,C,N_em_iters,transition_alpha,prior_sigma,global_fit):
+
+    K, fold, iter = cluster_arr_sep
+    init_param_file = results_dir / 'GLM' / ('fold_' + str(
+        fold)) / 'variables_of_interest_iter_0.npz'
+
+    # create save directory for this initialization/fold combination:
+    save_directory = results_dir / ('GLM_HMM_K_' + str(
+        K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+
+    launch_glm_hmm_job(inpt_mod,
+                       y,
+                       session,
+                       mask,
+                       session_fold_lookup_table,
+                       K,
+                       D,
+                       C,
+                       N_em_iters,
+                       transition_alpha,
+                       prior_sigma,
+                       fold,
+                       iter,
+                       global_fit,
+                       init_param_file,
+                       save_directory)
 
 if __name__ == '__main__':
     # if len(sys.argv)==1:
@@ -139,35 +171,19 @@ if __name__ == '__main__':
     violation_idx = np.where(y == -1)[0]
     nonviolation_idx, mask = create_violation_mask(violation_idx,
                                                    inpt.shape[0])
+    # prepare iterable arguments for multiprocessing
+    iterables = [(cluster_arr_sep, results_dir, inpt_mod, y, session,mask,
+                       session_fold_lookup_table,D,C,N_em_iters,transition_alpha,prior_sigma,global_fit)
+                 for cluster_arr_sep in cluster_arr]
 
-    for z in np.arange(cluster_arr.shape[0]):
-        [K, fold, iter] = cluster_arr[z]
-        #  GLM weights to use to initialize GLM-HMM
-        init_param_file = results_dir / 'GLM' / ('fold_' + str(
-            fold)) / 'variables_of_interest_iter_0.npz'
-
-        # create save directory for this initialization/fold combination:
-        save_directory = results_dir / ('GLM_HMM_K_' + str(
-            K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory)
-
-        launch_glm_hmm_job(inpt_mod,
-                           y,
-                           session,
-                           mask,
-                           session_fold_lookup_table,
-                           K,
-                           D,
-                           C,
-                           N_em_iters,
-                           transition_alpha,
-                           prior_sigma,
-                           fold,
-                           iter,
-                           global_fit,
-                           init_param_file,
-                           save_directory)
+    # initialize multiple processes
+    pool = mp.Pool(n_processes)
+    # launch multiple processes - starmap allows for multiple argumetns
+    pool.starmap(launch_multiple_hmmjob, iterables)
+    # Close the pool for new tasks
+    pool.close()
+    # Wait for all tasks to complete at this point
+    pool.join()
 
     # ###################################################################################
     # RUN GLOBAL GLM-HMM POST PROCESSING
