@@ -47,8 +47,8 @@ if __name__ == '__main__':
             om_cleaned.loc[session_no_index, 'freq_trans'])
         om_cleaned.loc[session_no_index, 'z_prev_choice'] = scipy.stats.zscore(
             om_cleaned.loc[session_no_index, 'prev_choice'])
-
-
+    # save for other processes
+    om_cleaned.to_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
     # to create a dict of mice
     animal_df = om_cleaned[['mouse_id','session_identifier']].copy()
     animal_df = animal_df.drop_duplicates(subset=['session_identifier'])
