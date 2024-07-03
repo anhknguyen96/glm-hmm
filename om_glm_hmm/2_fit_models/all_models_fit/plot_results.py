@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
     create_violation_mask, get_marginal_posterior, get_was_correct
-
+from simulate_data_from_glm import *
 def load_cv_arr(file):
     container = np.load(file, allow_pickle=True)
     data = [container[key] for key in container]
@@ -78,7 +78,14 @@ hmm_params, lls = load_glmhmm_data(raw_file)
 weight_vectors = -hmm_params[2]
 log_transition_matrix = hmm_params[1][0]
 init_state_dist = hmm_params[0][0]
+##################### SIMULATE VEC #################################################
+n_trials = 1000
+# simulate stim vec
+stim_vec = simulate_stim(n_trials + 1)
+# z score stim vec
+z_stim = (stim_vec - np.mean(stim_vec)) / np.std(stim_vec)
 
+inpt_arr, y_sim = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[0,:,:]),n_trials,z_stim)
 ##################### PLOT WEIGHTS FOR EACH K ######################################
 fig, ax= plt.subplots(1,K,figsize=(10,4),sharey=True)
 for ax_ind in range(K):
@@ -159,16 +166,16 @@ sess_to_plot_all = [all_sessions[5],all_sessions[15],all_sessions[25],all_sessio
 sess_to_plot = sess_to_plot_all[:K]
 cols = ['#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
             '#999999', '#e41a1c', '#dede00']
-fig = plt.subplots(figsize=(10, 4),sharey=True)
+fig,ax = plt.subplots(2,K,figsize=(10, 4),sharey='row')
 plt.subplots_adjust(wspace=0.2, hspace=0.9)
 for i, sess in enumerate(sess_to_plot):
-    plt.subplot(2, K, i+1)
-    plt.plot(labels_for_plot, np.squeeze(weight_vectors[i, :, :]))
-    plt.xticks(labels_for_plot, fontsize=12, rotation=45)
-    plt.axhline(0, linewidth=0.5, linestyle='--')
+    # plt.subplot(2, K, i+1)
+    ax[0,i].plot(labels_for_plot, np.squeeze(weight_vectors[i, :, :]))
+    ax[0,i].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+    ax[0,i].axhline(0, linewidth=0.5, linestyle='--')
 
 for i, sess in enumerate(sess_to_plot):
-    plt.subplot(2, K, i + K+1)
+    # plt.subplot(2, K, i + K+1)
     # get session index from session array
     idx_session = np.where(session == sess)
     # get input according to the session index
@@ -177,7 +184,7 @@ for i, sess in enumerate(sess_to_plot):
     posterior_probs_this_session = posterior_probs[idx_session[0], :]
     # Plot trial structure for this session too:
     for k in range(K):
-        plt.plot(posterior_probs_this_session[:, k],
+        ax[1,i].plot(posterior_probs_this_session[:, k],
                  label="State " + str(k + 1), lw=1,
                  color=cols[k])
     # get max probs of state of each trial
@@ -186,7 +193,7 @@ for i, sess in enumerate(sess_to_plot):
     state_change_locs = np.where(np.abs(np.diff(states_this_sess)) > 0)[0]
     # plot state change
     for change_loc in state_change_locs:
-        plt.axvline(x=change_loc, color='k', lw=0.5, linestyle='--')
+        ax[1,i].axvline(x=change_loc, color='k', lw=0.5, linestyle='--')
     plt.ylim((-0.01, 1.01))
     plt.title("example session " + str(i + 1), fontsize=10)
     plt.gca().spines['right'].set_visible(False)
@@ -203,5 +210,7 @@ plt.show()
 
 # TODO:
 # get psychometrics for each state and fraction correct, and fraction occupation
+## figure 5def in the papser
+## adapt fake data simulation code from R
 # systematically plot these diagnostic plots to understand the states
 # simulate therefrom
