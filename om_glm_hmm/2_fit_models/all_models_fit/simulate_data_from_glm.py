@@ -22,6 +22,8 @@ def simulate_stim(n_trials):
 def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
     # choice array
     y = []
+    # outcome array
+    outcome = []
     for i in range(n_trials):
         # initialize variables
         if i ==0:
@@ -37,13 +39,21 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
             choice_sim = -1
         # get outcome for this trial (failure or not)
         fail_sim = 1 if choice_sim*z_stim[i] > 0 else 0
+        outcome_sim = 0 if choice_sim*z_stim[i] > 0 else 1
         pfail = fail_sim
         pchoice = choice_sim
         # get choice array
         y.append(choice_sim)
+        # get outcome array
+        outcome.append(outcome_sim)
         # get array for the next trial
-        inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i], z_stim[i]*pfail, pchoice, 1]).reshape(1,-1)))
-    return inpt_arr[:-1,:], y
+        inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i+1], z_stim[i+1]*pfail, pchoice, 1]).reshape(1,-1)))
+    # remove last row
+    inpt_arr = inpt_arr[:-1,:]
+    # add choice array
+    inpt_arr = np.append(inpt_arr, np.array(y).reshape(-1,1),axis=1)
+    inpt_arr = np.append(inpt_arr, np.array(outcome).reshape(-1, 1), axis=1)
+    return inpt_arr
 
 
 

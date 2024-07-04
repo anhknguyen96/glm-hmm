@@ -3,8 +3,10 @@ from pathlib import Path
 import os
 import numpy as np
 import sys
+import pandas as pd
 sys.path.append('.')
 import matplotlib.pyplot as plt
+import seaborn as sns
 from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
     create_violation_mask, get_marginal_posterior, get_was_correct
@@ -59,7 +61,7 @@ data_individual = data_dir / 'data_by_animal'
 results_dir = root_result_dir / (root_folder_name +'_global_fit')
 results_dir_individual = root_result_dir/ (root_folder_name + '_individual_fit')
 
-labels_for_plot = ['p-fail', 'stim', 'stim:p-fail', 'p-choice','bias']
+labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
 ######################################################################################
 ##################### ALL ANIMALS ####################################################
 ##################### LOAD DATA ######################################################
@@ -71,7 +73,7 @@ cv_file = results_dir / 'cvbt_folds_model.npz'
 cvbt_folds_model = load_cv_arr(cv_file)
 
 # get file name with best initialization given K value
-K=2
+K=4
 raw_file = get_file_name_for_best_model_fold(
     cvbt_folds_model, K, results_dir, best_init_cvbt_dict)
 hmm_params, lls = load_glmhmm_data(raw_file)
@@ -79,13 +81,36 @@ weight_vectors = -hmm_params[2]
 log_transition_matrix = hmm_params[1][0]
 init_state_dist = hmm_params[0][0]
 ##################### SIMULATE VEC #################################################
-n_trials = 1000
+n_trials = 10000
 # simulate stim vec
-stim_vec = simulate_stim(n_trials + 1)
+stim_vec_sim = simulate_stim(n_trials+1)
 # z score stim vec
-z_stim = (stim_vec - np.mean(stim_vec)) / np.std(stim_vec)
+z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
+# define col names for simulated dataframe
+col_names = labels_for_plot + ['choice','outcome','stim_org','state']
+# initialize simulated array
+inpt_sim = np.zeros(len(col_names)).reshape(1,-1)
+for k_ind in range(K):
+    # simulate input array and choice
+    inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[0,:,:]),n_trials,z_stim_sim)
+    # add original simulated stim vec
+    inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
+    # add state info
+    inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+    # stack simulated input for each k
+    inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
+# create dataframe
+inpt_sim_df = pd.DataFrame(data=inpt_sim[1:,:],columns=col_names)
 
-inpt_arr, y_sim = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[0,:,:]),n_trials,z_stim)
+##################### PSYCHOMETRIC CURVES ##########################################
+# since min/max freq_trans is -1.5/1.5
+bin_lst = np.arange(-1.55,1.6,0.1)
+bin_name=np.round(np.arange(-1.5,1.6,.1),2)
+# get binned freqs for psychometrics
+inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+sim_stack = inpt_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
+# sim_stack['state'] = sim_stack['state'].astype('string')
+sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
 ##################### PLOT WEIGHTS FOR EACH K ######################################
 fig, ax= plt.subplots(1,K,figsize=(10,4),sharey=True)
 for ax_ind in range(K):
@@ -123,7 +148,6 @@ plt.xlabel("state t", fontsize=10)
 ##################### INDIVIDUAL ANIMAL ##############################################
 ##################### LOAD DATA ######################################################
 animal='17.0'
-K = 3
 results_dir_individual_animal = results_dir_individual / animal
 cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
 cvbt_folds_model = load_cv_arr(cv_file)
@@ -209,8 +233,10 @@ plt.show()
 
 
 # TODO:
+# check if something wrong with simulation function
+## psychometrics for all states look similar
 # get psychometrics for each state and fraction correct, and fraction occupation
 ## figure 5def in the papser
-## adapt fake data simulation code from R
+## get posterior prob for each trial, get the psychometric accordingly and compare to simulated data from model each k
 # systematically plot these diagnostic plots to understand the states
 # simulate therefrom
