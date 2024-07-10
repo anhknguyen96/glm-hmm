@@ -92,7 +92,7 @@ col_names = labels_for_plot + ['choice','outcome','stim_org','state']
 inpt_sim = np.zeros(len(col_names)).reshape(1,-1)
 for k_ind in range(K):
     # simulate input array and choice
-    inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[0,:,:]),n_trials,z_stim_sim)
+    inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
     # add original simulated stim vec
     inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
     # add state info
@@ -109,14 +109,20 @@ bin_name=np.round(np.arange(-1.5,1.6,.1),2)
 # get binned freqs for psychometrics
 inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
 sim_stack = inpt_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
-# sim_stack['state'] = sim_stack['state'].astype('string')
+sim_stack[-1] = sim_stack[-1].fillna(0)
 sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
 ##################### PLOT WEIGHTS FOR EACH K ######################################
-fig, ax= plt.subplots(1,K,figsize=(10,4),sharey=True)
+fig, ax= plt.subplots(2,K,figsize=(10,6),sharey="row",sharex='row')
 for ax_ind in range(K):
-    ax[ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]))
-    ax[ax_ind].set_xticklabels(labels_for_plot, fontsize=12,rotation=45)
-    ax[ax_ind].axhline(0,linewidth=0.5,linestyle='--')
+    ax[0,ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]))
+    ax[0,ax_ind].set_xticklabels(labels_for_plot, fontsize=12,rotation=45)
+    ax[0,ax_ind].axhline(0,linewidth=0.5,linestyle='--')
+    ax[0,ax_ind].set_title('state '+ str(ax_ind))
+    ax[1,ax_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[sim_stack.state==ax_ind])
+    ax[1, ax_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
+    ax[1, ax_ind].axhline(0.5, linewidth=0.5, linestyle='--')
+    ax[1, ax_ind].axvline(6, linewidth=0.5, linestyle='--')
+plt.tight_layout()
 plt.show()
 
 ##################### TRANSITION MATRIX ############################################
@@ -233,10 +239,10 @@ plt.show()
 
 
 # TODO:
-# check if something wrong with simulation function
-## psychometrics for all states look similar
+# what i just did was separately simulating data from each k-state glm, how do I
+# simulate data for glmhmm that also covers the switching state dynamics?
 # get psychometrics for each state and fraction correct, and fraction occupation
 ## figure 5def in the papser
 ## get posterior prob for each trial, get the psychometric accordingly and compare to simulated data from model each k
 # systematically plot these diagnostic plots to understand the states
-# simulate therefrom
+#
