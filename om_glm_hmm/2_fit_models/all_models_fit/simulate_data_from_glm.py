@@ -1,4 +1,5 @@
 import numpy as np
+import ssm
 
 def simulate_stim(n_trials):
     """
@@ -106,6 +107,66 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
     inpt_arr = np.append(inpt_arr, np.array(outcome).reshape(-1, 1), axis=1)
     return inpt_arr
 
+def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
+
+    # instantiate model
+    this_hmm = ssm.HMM(K,
+                       D,
+                       M,
+                       observations="input_driven_obs",
+                       observation_kwargs=dict(C=2),
+                       transitions="standard")
+    this_hmm.params = hmm_params
+
+    # choice array
+    y = []
+    # state array
+    state_arr = []
+    # outcome array
+    outcome = []
+    for i in range(n_trials):
+        # initialize variables
+        if i == 0:
+            pchoice = 1
+            pfail = 1
+            inpt_arr = np.array([pfail, z_stim[i], z_stim[i] * pfail, pchoice, 1]).reshape(1, -1)
+        # sample data from glm-hmm model
+        true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:])
+        choice_sim = true_y[0]
+        # re-encode choice so it matches with our data
+        if choice_sim == 0:
+            choice_sim = -1
+        # get outcome for this trial (failure or not)
+        fail_sim = 1 if choice_sim * z_stim[i] > 0 else 0
+        outcome_sim = 0 if choice_sim * z_stim[i] > 0 else 1
+        pfail = fail_sim
+        pchoice = choice_sim
+        # get state array
+        state_arr.append(true_z[0])
+        # get choice array
+        y.append(choice_sim)
+        # get outcome array
+        outcome.append(outcome_sim)
+        # get array for the next trial
+        inpt_arr = np.vstack(
+            (inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1] * pfail, pchoice, 1]).reshape(1, -1)))
+        # remove last row
+    inpt_arr = inpt_arr[:-1, :]
+    # add choice array
+    inpt_arr = np.append(inpt_arr, np.array(y).reshape(-1, 1), axis=1)
+    inpt_arr = np.append(inpt_arr, np.array(outcome).reshape(-1, 1), axis=1)
+    return inpt_arr, state_arr
+    # example from notebook
+    # Generate a sequence of latents and choices for each session
+    # true_latents, true_choices = [], []
+    # for sess in range(num_sess):
+    #     true_z, true_y = true_glmhmm.sample(num_trials_per_sess, input=inpts[sess])
+    #     true_latents.append(true_z)
+    #     true_choices.append(true_y)
+    #
+    # # Calculate true loglikelihood
+    # true_ll = true_glmhmm.log_probability(true_choices, inputs=inpts)
+    # print("true ll = " + str(true_ll))
 
 
 

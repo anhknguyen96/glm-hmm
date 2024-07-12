@@ -80,6 +80,16 @@ hmm_params, lls = load_glmhmm_data(raw_file)
 weight_vectors = -hmm_params[2]
 log_transition_matrix = hmm_params[1][0]
 init_state_dist = hmm_params[0][0]
+# load animal data for simulation
+inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
+violation_idx = np.where(y == -1)[0]
+nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                               inpt.shape[0])
+y[np.where(y == -1), :] = 1
+inputs, datas, train_masks = partition_data_by_session(
+    np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+M = inputs[0].shape[1]
+D = datas[0].shape[1]
 ##################### SIMULATE VEC #################################################
 n_trials = 10000
 # simulate stim vec
