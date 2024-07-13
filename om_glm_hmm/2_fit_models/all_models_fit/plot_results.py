@@ -169,12 +169,21 @@ plt.title("recovered", fontsize = 15)
 plt.subplots_adjust(0, 0, 1, 1);plt.tight_layout();plt.show()
 
 ##################### PSYCHOMETRIC CURVES ##########################################
+glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(glmhmm_choice).reshape(-1, 1), axis=1)
+glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(glmhmm_outcome).reshape(-1, 1), axis=1)
+glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
+# add state info
+glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(glmhmm_state_arr).reshape(-1, 1), axis=1)
+glmhmm_sim_df = pd.DataFrame(data=glmhmm_inpt_arr, columns=col_names)
+
 # since min/max freq_trans is -1.5/1.5
 bin_lst = np.arange(-1.55,1.6,0.1)
 bin_name=np.round(np.arange(-1.5,1.6,.1),2)
 # get binned freqs for psychometrics
-inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
-sim_stack = inpt_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
+glmhmm_sim_df["binned_freq"] = pd.cut(glmhmm_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+sim_stack = glmhmm_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
+# inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+# sim_stack = inpt_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
 sim_stack[-1] = sim_stack[-1].fillna(0)
 sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
 

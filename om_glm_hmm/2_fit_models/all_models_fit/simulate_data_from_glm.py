@@ -132,8 +132,11 @@ def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
             pchoice = 1
             pfail = 1
             inpt_arr = np.array([pfail, z_stim[i], z_stim[i] * pfail, pchoice, 1]).reshape(1, -1)
-        # sample data from glm-hmm model
-        true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:].reshape(1,-1))
+            # sample data from glm-hmm model
+            true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:].reshape(1,-1))
+        else:
+            # with prefix for input-driven obs data simulation
+            true_z, true_y = this_hmm.sample(T=1,prefix=(true_z,true_y), input=inpt_arr[-1, :].reshape(1, -1))
         choice_sim = true_y[0][0]
         # re-encode choice so it matches with our data
         if choice_sim == 0:
