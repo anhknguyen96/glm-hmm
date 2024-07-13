@@ -11,6 +11,7 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
     create_violation_mask, get_marginal_posterior, get_was_correct
 from simulate_data_from_glm import *
+from ssm.util import find_permutation
 def load_cv_arr(file):
     container = np.load(file, allow_pickle=True)
     data = [container[key] for key in container]
@@ -100,6 +101,7 @@ z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
 col_names = labels_for_plot + ['choice','outcome','stim_org','state']
 # initialize simulated array
 inpt_sim = np.zeros(len(col_names)).reshape(1,-1)
+# simulate from k-state glms
 for k_ind in range(K):
     # simulate input array and choice
     inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
@@ -112,6 +114,60 @@ for k_ind in range(K):
 # create dataframe
 inpt_sim_df = pd.DataFrame(data=inpt_sim[1:,:],columns=col_names)
 
+# SIMULATE FROM GLMHMM
+true_ll, glmhmm_inpt_arr, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim_sim)
+# fit glmhmm and perform recovery analysis
+recovered_glmhmm = ssm.HMM(K, D, M, observations="input_driven_obs",
+                   observation_kwargs=dict(C=2), transitions="standard")
+N_iters = 200 # maximum number of EM iterations. Fitting with stop earlier if increase in LL is below tolerance specified by tolerance parameter
+fit_ll = recovered_glmhmm.fit([glmhmm_y], inputs=[glmhmm_inpt_arr], method="em", num_iters=N_iters, tolerance=10**-4)
+# permute states
+recovered_glmhmm.permute(find_permutation(np.array(glmhmm_state_arr), recovered_glmhmm.most_likely_states(glmhmm_y, input=glmhmm_inpt_arr)))
+
+# CHECK PLOTS FOR SIMULATION AND RECOVERY
+# Plot the log probabilities of the true and fit models. Fit model final LL should be greater
+# than or equal to true LL.
+fig = plt.figure(figsize=(4, 3), dpi=80, facecolor='w', edgecolor='k')
+plt.plot(fit_ll, label="EM")
+plt.plot([0, len(fit_ll)], true_ll * np.ones(2), ':k', label="True")
+plt.legend(loc="lower right")
+plt.xlabel("EM Iteration")
+plt.xlim(0, len(fit_ll))
+plt.ylabel("Log Probability")
+plt.show()
+
+# plot generative and recovered transitrion matrix
+num_states=K
+fig = plt.figure(figsize=(5, 2.5), dpi=80, facecolor='w', edgecolor='k')
+plt.subplot(1, 2, 1)
+gen_trans_mat = np.exp(log_transition_matrix)
+plt.imshow(gen_trans_mat, vmin=-0.8, vmax=1, cmap='bone')
+for i in range(gen_trans_mat.shape[0]):
+    for j in range(gen_trans_mat.shape[1]):
+        text = plt.text(j, i, str(np.around(gen_trans_mat[i, j], decimals=2)), ha="center", va="center",
+                        color="k", fontsize=12)
+plt.xlim(-0.5, num_states - 0.5)
+plt.xticks(range(0, num_states), ('1', '2', '3'), fontsize=10)
+plt.yticks(range(0, num_states), ('1', '2', '3'), fontsize=10)
+plt.ylim(num_states - 0.5, -0.5)
+plt.ylabel("state t", fontsize = 15)
+plt.xlabel("state t+1", fontsize = 15)
+plt.title("generative", fontsize = 15)
+
+plt.subplot(1, 2, 2)
+recovered_trans_mat = np.exp(recovered_glmhmm.transitions.log_Ps)
+plt.imshow(recovered_trans_mat, vmin=-0.8, vmax=1, cmap='bone')
+for i in range(recovered_trans_mat.shape[0]):
+    for j in range(recovered_trans_mat.shape[1]):
+        text = plt.text(j, i, str(np.around(recovered_trans_mat[i, j], decimals=2)), ha="center", va="center",
+                        color="k", fontsize=12)
+plt.xlim(-0.5, num_states - 0.5)
+plt.xticks(range(0, num_states), ('1', '2', '3'), fontsize=10)
+plt.yticks(range(0, num_states), ('1', '2', '3'), fontsize=10)
+plt.ylim(num_states - 0.5, -0.5)
+plt.title("recovered", fontsize = 15)
+plt.subplots_adjust(0, 0, 1, 1);plt.tight_layout();plt.show()
+
 ##################### PSYCHOMETRIC CURVES ##########################################
 # since min/max freq_trans is -1.5/1.5
 bin_lst = np.arange(-1.55,1.6,0.1)
@@ -121,6 +177,8 @@ inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= 
 sim_stack = inpt_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
 sim_stack[-1] = sim_stack[-1].fillna(0)
 sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
+
+
 ##################### PLOT WEIGHTS FOR EACH K ######################################
 fig, ax= plt.subplots(2,K,figsize=(10,6),sharey="row",sharex='row')
 for ax_ind in range(K):
@@ -249,8 +307,7 @@ plt.show()
 
 
 # TODO:
-# what i just did was separately simulating data from each k-state glm, how do I
-# simulate data for glmhmm that also covers the switching state dynamics?
+# why does simulated data from glmhmm have non-sticky states?????
 # get psychometrics for each state and fraction correct, and fraction occupation
 ## figure 5def in the papser
 ## get posterior prob for each trial, get the psychometric accordingly and compare to simulated data from model each k

@@ -120,6 +120,8 @@ def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
 
     # choice array
     y = []
+    # for params recovery
+    y_sim = []
     # state array
     state_arr = []
     # outcome array
@@ -131,8 +133,8 @@ def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
             pfail = 1
             inpt_arr = np.array([pfail, z_stim[i], z_stim[i] * pfail, pchoice, 1]).reshape(1, -1)
         # sample data from glm-hmm model
-        true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:])
-        choice_sim = true_y[0]
+        true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:].reshape(1,-1))
+        choice_sim = true_y[0][0]
         # re-encode choice so it matches with our data
         if choice_sim == 0:
             choice_sim = -1
@@ -145,6 +147,7 @@ def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
         state_arr.append(true_z[0])
         # get choice array
         y.append(choice_sim)
+        y_sim.append(true_y[0][0])
         # get outcome array
         outcome.append(outcome_sim)
         # get array for the next trial
@@ -152,10 +155,12 @@ def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
             (inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1] * pfail, pchoice, 1]).reshape(1, -1)))
         # remove last row
     inpt_arr = inpt_arr[:-1, :]
-    # add choice array
-    inpt_arr = np.append(inpt_arr, np.array(y).reshape(-1, 1), axis=1)
-    inpt_arr = np.append(inpt_arr, np.array(outcome).reshape(-1, 1), axis=1)
-    return inpt_arr, state_arr
+    # reshape to fit data structure assumption in ssm package
+    y_sim = np.array(y_sim).reshape(-1,1)
+    # Calculate true loglikelihood
+    true_ll = this_hmm.log_probability([y_sim], inputs=[inpt_arr])
+    print("true ll = " + str(true_ll))
+    return true_ll, inpt_arr, y_sim, y, outcome, state_arr
     # example from notebook
     # Generate a sequence of latents and choices for each session
     # true_latents, true_choices = [], []
