@@ -83,6 +83,12 @@ log_transition_matrix = hmm_params[1][0]
 init_state_dist = hmm_params[0][0]
 # load animal data for simulation
 inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
+inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
+# create dataframe all animals for plotting
+inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1,1),axis=1)
+inpt_data = pd.DataFrame(data=inpt_unnorm,columns=labels_for_plot)
+inpt_data['choice'] = y
+# prepare data
 violation_idx = np.where(y == -1)[0]
 nonviolation_idx, mask = create_violation_mask(violation_idx,
                                                inpt.shape[0])
@@ -91,42 +97,68 @@ inputs, datas, train_masks = partition_data_by_session(
     np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
 M = inputs[0].shape[1]
 D = datas[0].shape[1]
+# get posterior probs for state inference
+posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                         hmm_params, K, range(K))
+states_max_posterior = np.argmax(posterior_probs, axis=1)
+inpt_data['state'] = states_max_posterior
 ##################### SIMULATE VEC #################################################
-n_trials = 10000
-# simulate stim vec
-stim_vec_sim = simulate_stim(n_trials+1)
-# z score stim vec
-z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
-# define col names for simulated dataframe
-col_names = labels_for_plot + ['choice','outcome','stim_org','state']
-# initialize simulated array
-inpt_sim = np.zeros(len(col_names)).reshape(1,-1)
-# simulate from k-state glms
-for k_ind in range(K):
-    # simulate input array and choice
-    inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
-    # add original simulated stim vec
-    inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
-    # add state info
-    inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
-    # stack simulated input for each k
-    inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
-# create dataframe
-inpt_sim_df = pd.DataFrame(data=inpt_sim[1:,:],columns=col_names)
-
 # SIMULATE FROM GLMHMM
-true_ll, glmhmm_inpt_arr, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim_sim)
+# define col names for simulated dataframe
+col_names_glmhmm = labels_for_plot + ['choice','outcome','stim_org','state', 'session','y']
+n_session = 5
+n_trials = 250
+# instantiate model
+data_hmm = ssm.HMM(K,
+                       D,
+                       M,
+                       observations="input_driven_obs",
+                       observation_kwargs=dict(C=2),
+                       transitions="standard")
+data_hmm.params = hmm_params
+# initialize list of inputs and y
+glmhmm_inpt_lst, glmhmm_y_lst =[], []
+# initialize simulated array
+glmhmm_inpt_arr = np.zeros(len(col_names_glmhmm)).reshape(1,-1)
+for i in range(n_session):
+    # simulate stim vec
+    stim_vec_sim = simulate_stim(n_trials + 1)
+    # z score stim vec
+    z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
+    # simulate data
+    glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim)
+    # append list for model fit and recovery
+    glmhmm_inpt_lst.append(glmhmm_inpt)
+    glmhmm_y_lst.append(glmhmm_y)
+    # append array for plotting
+    glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_choice).reshape(-1, 1), axis=1)
+    glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_outcome).reshape(-1, 1), axis=1)
+    glmhmm_inpt = np.append(glmhmm_inpt, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
+    # add state info
+    glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_state_arr).reshape(-1, 1), axis=1)
+    # add session info
+    glmhmm_inpt = np.append(glmhmm_inpt, i * np.ones(glmhmm_inpt.shape[0]).reshape(-1, 1), axis=1)
+    # add y
+    glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_y).reshape(-1, 1), axis=1)
+    # stack array
+    glmhmm_inpt_arr = np.vstack((glmhmm_inpt_arr,glmhmm_inpt))
+# create dataframe for plotting
+glmhmm_sim_df = pd.DataFrame(data=glmhmm_inpt_arr[1:,:], columns=col_names_glmhmm)
+# Calculate true loglikelihood
+true_ll = data_hmm.log_probability(glmhmm_y_lst, inputs=glmhmm_inpt_lst)
+print("true ll = " + str(true_ll))
 # fit glmhmm and perform recovery analysis
 recovered_glmhmm = ssm.HMM(K, D, M, observations="input_driven_obs",
                    observation_kwargs=dict(C=2), transitions="standard")
 N_iters = 200 # maximum number of EM iterations. Fitting with stop earlier if increase in LL is below tolerance specified by tolerance parameter
-fit_ll = recovered_glmhmm.fit([glmhmm_y], inputs=[glmhmm_inpt_arr], method="em", num_iters=N_iters, tolerance=10**-4)
+fit_ll = recovered_glmhmm.fit(glmhmm_y_lst, inputs=glmhmm_inpt_lst, method="em", num_iters=N_iters, tolerance=10**-4)
 # permute states
-recovered_glmhmm.permute(find_permutation(np.array(glmhmm_state_arr), recovered_glmhmm.most_likely_states(glmhmm_y, input=glmhmm_inpt_arr)))
+# have to use the whole array beecause not all sessions have 4 states
+# recovered_glmhmm.permute(find_permutation(np.array(glmhmm_sim_df.state), recovered_glmhmm.most_likely_states(np.array(glmhmm_sim_df.y), input=np.array(glmhmm_sim_df[labels_for_plot]))))
+recovered_glmhmm.permute(find_permutation(np.array(glmhmm_state_arr), recovered_glmhmm.most_likely_states(glmhmm_y_lst[-1], input=glmhmm_inpt_lst[-1])))
 
 # CHECK PLOTS FOR SIMULATION AND RECOVERY
-# Plot the log probabilities of the true and fit models. Fit model final LL should be greater
-# than or equal to true LL.
+# Plot the log probabilities of the true and fit models. Fit model final LL should be greater than or equal to true LL.
 fig = plt.figure(figsize=(4, 3), dpi=80, facecolor='w', edgecolor='k')
 plt.plot(fit_ll, label="EM")
 plt.plot([0, len(fit_ll)], true_ll * np.ones(2), ':k', label="True")
@@ -169,33 +201,35 @@ plt.title("recovered", fontsize = 15)
 plt.subplots_adjust(0, 0, 1, 1);plt.tight_layout();plt.show()
 
 ##################### PSYCHOMETRIC CURVES ##########################################
-glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(glmhmm_choice).reshape(-1, 1), axis=1)
-glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(glmhmm_outcome).reshape(-1, 1), axis=1)
-glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
-# add state info
-glmhmm_inpt_arr = np.append(glmhmm_inpt_arr, np.array(glmhmm_state_arr).reshape(-1, 1), axis=1)
-glmhmm_sim_df = pd.DataFrame(data=glmhmm_inpt_arr, columns=col_names)
-
 # since min/max freq_trans is -1.5/1.5
 bin_lst = np.arange(-1.55,1.6,0.1)
 bin_name=np.round(np.arange(-1.5,1.6,.1),2)
-# get binned freqs for psychometrics
-glmhmm_sim_df["binned_freq"] = pd.cut(glmhmm_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+# get binned freqs for psychometrics for simulated data
+glmhmm_sim_df["binned_freq"] = pd.cut(glmhmm_sim_df['stim_org'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
 sim_stack = glmhmm_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
-# inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
-# sim_stack = inpt_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
 sim_stack[-1] = sim_stack[-1].fillna(0)
+# get binned freqs for psychometrics for real data
+inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+data_stack = inpt_data.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
+data_stack[0] = data_stack[0].fillna(0)
+data_stack['binned_freq'] = data_stack['binned_freq'].astype('float')
 sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
-
 
 ##################### PLOT WEIGHTS FOR EACH K ######################################
 fig, ax= plt.subplots(2,K,figsize=(10,6),sharey="row",sharex='row')
 for ax_ind in range(K):
+    # plot k-state weights
     ax[0,ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]))
     ax[0,ax_ind].set_xticklabels(labels_for_plot, fontsize=12,rotation=45)
     ax[0,ax_ind].axhline(0,linewidth=0.5,linestyle='--')
     ax[0,ax_ind].set_title('state '+ str(ax_ind))
+    # plot psychometrics for simulated data
     ax[1,ax_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[sim_stack.state==ax_ind])
+    # plot psychometrics for aggregated real data
+    ax[1, ax_ind].plot(sim_stack.binned_freq.unique(), data_stack[0].loc[(data_stack.state == ax_ind)
+                                                                        &(data_stack.binned_freq>-0.7)
+                                                                        &(data_stack.binned_freq<0.7)],'--')
+    # miscellaneous
     ax[1, ax_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
     ax[1, ax_ind].axhline(0.5, linewidth=0.5, linestyle='--')
     ax[1, ax_ind].axvline(6, linewidth=0.5, linestyle='--')
@@ -316,7 +350,8 @@ plt.show()
 
 
 # TODO:
-# why does simulated data from glmhmm have non-sticky states?????
+# compare simulated and real data, see what the model captures in the data and what's lacking
+# understand the state change dynamics
 # get psychometrics for each state and fraction correct, and fraction occupation
 ## figure 5def in the papser
 ## get posterior prob for each trial, get the psychometric accordingly and compare to simulated data from model each k

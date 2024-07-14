@@ -107,16 +107,7 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
     inpt_arr = np.append(inpt_arr, np.array(outcome).reshape(-1, 1), axis=1)
     return inpt_arr
 
-def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
-
-    # instantiate model
-    this_hmm = ssm.HMM(K,
-                       D,
-                       M,
-                       observations="input_driven_obs",
-                       observation_kwargs=dict(C=2),
-                       transitions="standard")
-    this_hmm.params = hmm_params
+def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
 
     # choice array
     y = []
@@ -160,10 +151,8 @@ def simulate_from_glmhmm_pfailpchoice_model(M,D,K,hmm_params,n_trials,z_stim):
     inpt_arr = inpt_arr[:-1, :]
     # reshape to fit data structure assumption in ssm package
     y_sim = np.array(y_sim).reshape(-1,1)
-    # Calculate true loglikelihood
-    true_ll = this_hmm.log_probability([y_sim], inputs=[inpt_arr])
-    print("true ll = " + str(true_ll))
-    return true_ll, inpt_arr, y_sim, y, outcome, state_arr
+
+    return inpt_arr, y_sim, y, outcome, state_arr
     # example from notebook
     # Generate a sequence of latents and choices for each session
     # true_latents, true_choices = [], []
