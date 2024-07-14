@@ -106,8 +106,9 @@ inpt_data['state'] = states_max_posterior
 # SIMULATE FROM GLMHMM
 # define col names for simulated dataframe
 col_names_glmhmm = labels_for_plot + ['choice','outcome','stim_org','state', 'session','y']
-n_session = 5
-n_trials = 250
+# for global glmhmm model, multiple sessions simulation will not match the fitted model, since the fitted model used aggregated data
+n_session = 1
+n_trials = 10000
 # instantiate model
 data_hmm = ssm.HMM(K,
                        D,
@@ -121,6 +122,9 @@ glmhmm_inpt_lst, glmhmm_y_lst =[], []
 # initialize simulated array
 glmhmm_inpt_arr = np.zeros(len(col_names_glmhmm)).reshape(1,-1)
 for i in range(n_session):
+    # if i == n_session-1:
+    #     # for switching label problem
+    #     n_trials=500
     # simulate stim vec
     stim_vec_sim = simulate_stim(n_trials + 1)
     # z score stim vec
@@ -153,9 +157,9 @@ recovered_glmhmm = ssm.HMM(K, D, M, observations="input_driven_obs",
 N_iters = 200 # maximum number of EM iterations. Fitting with stop earlier if increase in LL is below tolerance specified by tolerance parameter
 fit_ll = recovered_glmhmm.fit(glmhmm_y_lst, inputs=glmhmm_inpt_lst, method="em", num_iters=N_iters, tolerance=10**-4)
 # permute states
-# have to use the whole array beecause not all sessions have 4 states
-# recovered_glmhmm.permute(find_permutation(np.array(glmhmm_sim_df.state), recovered_glmhmm.most_likely_states(np.array(glmhmm_sim_df.y), input=np.array(glmhmm_sim_df[labels_for_plot]))))
-recovered_glmhmm.permute(find_permutation(np.array(glmhmm_state_arr), recovered_glmhmm.most_likely_states(glmhmm_y_lst[-1], input=glmhmm_inpt_lst[-1])))
+# have to use the the last session which has huge n_trials beecause not all sessions have 4 states
+# permute_df = glmhmm_sim_df.loc[(glmhmm_sim_df.session==24)]
+recovered_glmhmm.permute(find_permutation(glmhmm_sim_df.state.astype('int'), recovered_glmhmm.most_likely_states(np.array(glmhmm_sim_df.y).reshape(-1,1).astype('int'), input=np.array(glmhmm_sim_df[labels_for_plot]))))
 
 # CHECK PLOTS FOR SIMULATION AND RECOVERY
 # Plot the log probabilities of the true and fit models. Fit model final LL should be greater than or equal to true LL.
@@ -216,51 +220,31 @@ data_stack['binned_freq'] = data_stack['binned_freq'].astype('float')
 sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
 
 ##################### PLOT WEIGHTS FOR EACH K ######################################
+recovered_weights = -recovered_glmhmm.observations.params
 fig, ax= plt.subplots(2,K,figsize=(10,6),sharey="row",sharex='row')
 for ax_ind in range(K):
     # plot k-state weights
-    ax[0,ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]))
+    ax[0,ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]),label='data')
+    ax[0,ax_ind].plot(labels_for_plot, np.squeeze(recovered_weights[ax_ind, :, :]),'--',label='simulated')
     ax[0,ax_ind].set_xticklabels(labels_for_plot, fontsize=12,rotation=45)
     ax[0,ax_ind].axhline(0,linewidth=0.5,linestyle='--')
     ax[0,ax_ind].set_title('state '+ str(ax_ind))
-    # plot psychometrics for simulated data
-    ax[1,ax_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[sim_stack.state==ax_ind])
     # plot psychometrics for aggregated real data
     ax[1, ax_ind].plot(sim_stack.binned_freq.unique(), data_stack[0].loc[(data_stack.state == ax_ind)
-                                                                        &(data_stack.binned_freq>-0.7)
-                                                                        &(data_stack.binned_freq<0.7)],'--')
+                                                                         & (data_stack.binned_freq > -0.7)
+                                                                         & (data_stack.binned_freq < 0.7)],label='data')
+    # plot psychometrics for simulated data
+    ax[1,ax_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[sim_stack.state==ax_ind], '--',label='simulated')
     # miscellaneous
     ax[1, ax_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
     ax[1, ax_ind].axhline(0.5, linewidth=0.5, linestyle='--')
     ax[1, ax_ind].axvline(6, linewidth=0.5, linestyle='--')
+    if ax_ind == K-1:
+        handles, labels = ax[0, ax_ind].get_legend_handles_labels()
+        ax[0, ax_ind].legend(handles, labels,loc='lower right')
+fig.suptitle('All animals')
 plt.tight_layout()
 plt.show()
-
-##################### TRANSITION MATRIX ############################################
-transition_matrix = np.exp(log_transition_matrix)
-fig = plt.figure(figsize=(3, 3))
-plt.subplots_adjust(left=0.3, bottom=0.3, right=0.95, top=0.95)
-plt.imshow(transition_matrix, vmin=-0.8, vmax=1, cmap='bone')
-for i in range(transition_matrix.shape[0]):
-    for j in range(transition_matrix.shape[1]):
-        text = plt.text(j,
-                        i,
-                        str(np.around(transition_matrix[i, j],
-                                      decimals=2)),
-                        ha="center",
-                        va="center",
-                        color="k",
-                        fontsize=10)
-plt.xlim(-0.5, K - 0.5)
-plt.xticks(range(0, K),
-           ('1', '2', '3', '4', '4', '5', '6', '7', '8', '9', '10')[:K],
-           fontsize=10)
-plt.yticks(range(0, K),
-           ('1', '2', '3', '4', '4', '5', '6', '7', '8', '9', '10')[:K],
-           fontsize=10)
-plt.ylim(K - 0.5, -0.5)
-plt.ylabel("state t-1", fontsize=10)
-plt.xlabel("state t", fontsize=10)
 
 ##################### INDIVIDUAL ANIMAL ##############################################
 ##################### LOAD DATA ######################################################
@@ -352,6 +336,7 @@ plt.show()
 # TODO:
 # compare simulated and real data, see what the model captures in the data and what's lacking
 # understand the state change dynamics
+# simulate data for each animal, session basis?
 # get psychometrics for each state and fraction correct, and fraction occupation
 ## figure 5def in the papser
 ## get posterior prob for each trial, get the psychometric accordingly and compare to simulated data from model each k
