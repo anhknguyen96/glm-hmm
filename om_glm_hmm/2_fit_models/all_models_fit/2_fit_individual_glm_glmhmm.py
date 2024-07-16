@@ -30,6 +30,7 @@ transition_alpha = [2]
 K_vals = [2, 3, 4, 5]
 N_em_iters = 300  # number of EM iterations
 n_processes = 15
+multiprocess_option=0
 
 # post processing individual glmhmm fit
 D = 1  # number of output dimensions
@@ -101,56 +102,56 @@ if __name__ == '__main__':
         labels_for_plot = ['prev-fail', 'stim', 'stim:prev-fail', 'prev-choice','bias']
 
 
-    for animal in animal_list:
-        # Fit GLM to data from single animal:
-        animal_file = data_dir / (animal + processed_file_name)
-        session_fold_lookup_table = load_session_fold_lookup(
-            data_dir / (animal + session_lookup_name))
-
-        for fold in range(num_folds):
-            this_results_dir = results_dir / animal
-
-            # Load data
-            inpt, y, session = load_data(animal_file)
-
-            figure_directory = this_results_dir / "GLM" / ("fold_" + str(fold))
-            if not os.path.exists(figure_directory):
-                os.makedirs(figure_directory)
-
-            # Subset to sessions of interest for fold
-            sessions_to_keep = session_fold_lookup_table[np.where(
-                session_fold_lookup_table[:, 1] != fold), 0]
-            idx_this_fold = [
-                str(sess) in sessions_to_keep and y[id, 0] != -1
-                for id, sess in enumerate(session)
-            ]
-            this_inpt, this_y, this_session = inpt[idx_this_fold, :], \
-                                              y[idx_this_fold, :], \
-                                              session[idx_this_fold]
-            assert len(
-                np.unique(this_y)
-            ) == 2, "choice vector should only include 2 possible values"
-            train_size = this_inpt.shape[0]
-
-            M = this_inpt.shape[1]
-            loglikelihood_train_vector = []
-
-            for iter in range(N_initializations):
-                loglikelihood_train, recovered_weights = fit_glm([this_inpt],
-                                                                 [this_y], M,
-                                                                 C)
-                weights_for_plotting = append_zeros(recovered_weights)
-                plot_input_vectors(weights_for_plotting,
-                                   figure_directory,
-                                   title="GLM fit; Final LL = " +
-                                   str(loglikelihood_train),
-                                   save_title='init' + str(iter),
-                                   labels_for_plot=labels_for_plot)
-                loglikelihood_train_vector.append(loglikelihood_train)
-                np.savez(
-                    figure_directory / ('variables_of_interest_iter_' +
-                    str(iter) + '.npz'), loglikelihood_train, recovered_weights)
-
+    # for animal in animal_list:
+    #     # Fit GLM to data from single animal:
+    #     animal_file = data_dir / (animal + processed_file_name)
+    #     session_fold_lookup_table = load_session_fold_lookup(
+    #         data_dir / (animal + session_lookup_name))
+    #
+    #     for fold in range(num_folds):
+    #         this_results_dir = results_dir / animal
+    #
+    #         # Load data
+    #         inpt, y, session = load_data(animal_file)
+    #
+    #         figure_directory = this_results_dir / "GLM" / ("fold_" + str(fold))
+    #         if not os.path.exists(figure_directory):
+    #             os.makedirs(figure_directory)
+    #
+    #         # Subset to sessions of interest for fold
+    #         sessions_to_keep = session_fold_lookup_table[np.where(
+    #             session_fold_lookup_table[:, 1] != fold), 0]
+    #         idx_this_fold = [
+    #             str(sess) in sessions_to_keep and y[id, 0] != -1
+    #             for id, sess in enumerate(session)
+    #         ]
+    #         this_inpt, this_y, this_session = inpt[idx_this_fold, :], \
+    #                                           y[idx_this_fold, :], \
+    #                                           session[idx_this_fold]
+    #         assert len(
+    #             np.unique(this_y)
+    #         ) == 2, "choice vector should only include 2 possible values"
+    #         train_size = this_inpt.shape[0]
+    #
+    #         M = this_inpt.shape[1]
+    #         loglikelihood_train_vector = []
+    #
+    #         for iter in range(N_initializations):
+    #             loglikelihood_train, recovered_weights = fit_glm([this_inpt],
+    #                                                              [this_y], M,
+    #                                                              C)
+    #             weights_for_plotting = append_zeros(recovered_weights)
+    #             plot_input_vectors(weights_for_plotting,
+    #                                figure_directory,
+    #                                title="GLM fit; Final LL = " +
+    #                                str(loglikelihood_train),
+    #                                save_title='init' + str(iter),
+    #                                labels_for_plot=labels_for_plot)
+    #             loglikelihood_train_vector.append(loglikelihood_train)
+    #             np.savez(
+    #                 figure_directory / ('variables_of_interest_iter_' +
+    #                 str(iter) + '.npz'), loglikelihood_train, recovered_weights)
+    #
 
     ###################################################################################
     # FIT INDIVIDUAL GLM-HMM
@@ -159,38 +160,83 @@ if __name__ == '__main__':
     # Load cluster array job parameters:
     cluster_arr = load_cluster_arr(cluster_arr_file)
 
-    animal_list = load_animal_list(data_dir / 'animal_list.npz')
-    for i, animal in enumerate(animal_list):
-        print(animal)
-        animal_file = data_dir / (animal + processed_file_name)
-        session_fold_lookup_table = load_session_fold_lookup(
-            data_dir / (animal + session_lookup_name))
+    if multiprocess_option:
+        animal_list = load_animal_list(data_dir / 'animal_list.npz')
+        for i, animal in enumerate(animal_list):
+            print(animal)
+            animal_file = data_dir / (animal + processed_file_name)
+            session_fold_lookup_table = load_session_fold_lookup(
+                data_dir / (animal + session_lookup_name))
 
-        global_fit = False
+            global_fit = False
 
-        inpt, y, session = load_data(animal_file)
-        #  append a column of ones to inpt to represent the bias covariate:
-        inpt_mod = np.hstack((inpt, np.ones((len(inpt), 1))))
-        y = y.astype('int')
+            inpt, y, session = load_data(animal_file)
+            #  append a column of ones to inpt to represent the bias covariate:
+            inpt_mod = np.hstack((inpt, np.ones((len(inpt), 1))))
+            y = y.astype('int')
 
-        overall_dir = results_dir / animal
+            overall_dir = results_dir / animal
 
-        # Identify violations for exclusion:
-        violation_idx = np.where(y == -1)[0]
-        nonviolation_idx, mask = create_violation_mask(violation_idx,
-                                                       inpt.shape[0])
+            # Identify violations for exclusion:
+            violation_idx = np.where(y == -1)[0]
+            nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                           inpt.shape[0])
 
-        iterables = [(cluster_arr_sep, inpt_mod, y, session, mask, session_fold_lookup_table,
-                               D, C, N_em_iters, global_fit,global_data_dir, overall_dir)
-                     for cluster_arr_sep in cluster_arr]
-        # initialize multiple processes
-        pool = mp.Pool(n_processes)
-        # launch multiple processes - starmap allows for multiple argumetns
-        pool.starmap(launch_multiple_individual_hmmjob, iterables)
-        # Close the pool for new tasks
-        pool.close()
-        # Wait for all tasks to complete at this point
-        pool.join()
+            iterables = [(cluster_arr_sep, inpt_mod, y, session, mask, session_fold_lookup_table,
+                                   D, C, N_em_iters, global_fit,global_data_dir, overall_dir)
+                         for cluster_arr_sep in cluster_arr]
+            # initialize multiple processes
+            pool = mp.Pool(n_processes)
+            # launch multiple processes - starmap allows for multiple argumetns
+            pool.starmap(launch_multiple_individual_hmmjob, iterables)
+            # Close the pool for new tasks
+            pool.close()
+            # Wait for all tasks to complete at this point
+            pool.join()
+    else:
+        # test multiprocessing fit
+        # for z in range(cluster_arr.shape[0]):
+        for z in range(20,30):
+            [prior_sigma, transition_alpha, K, fold, iter] = cluster_arr[z]
+
+            iter = int(iter)
+            fold = int(fold)
+            K = int(K)
+
+            animal_list = load_animal_list(data_dir / 'animal_list.npz')
+
+            for i, animal in enumerate(animal_list):
+                print(animal)
+                animal_file = data_dir / (animal + processed_file_name)
+                session_fold_lookup_table = load_session_fold_lookup(
+                    data_dir / (animal + session_lookup_name))
+
+                global_fit = False
+
+                inpt, y, session = load_data(animal_file)
+                #  append a column of ones to inpt to represent the bias covariate:
+                inpt = np.hstack((inpt, np.ones((len(inpt), 1))))
+                y = y.astype('int')
+
+                overall_dir = results_dir / animal
+
+                # Identify violations for exclusion:
+                violation_idx = np.where(y == -1)[0]
+                nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                               inpt.shape[0])
+
+                init_param_file = global_data_dir / ('best_global_params/best_params_K_' + str(K) + '.npz')
+
+                # create save directory for this initialization/fold combination:
+                save_directory = overall_dir / ('GLM_HMM_K_' + str(
+                    K)) / ('fold_' + str(fold)) / ('iter_' + str(iter))
+                if not os.path.exists(save_directory):
+                    os.makedirs(save_directory)
+
+                launch_glm_hmm_job(inpt, y, session, mask, session_fold_lookup_table,
+                                   K, D, C, N_em_iters, transition_alpha, prior_sigma,
+                                   fold, iter, global_fit, init_param_file,
+                                   save_directory)
     ###################################################################################
     # RUN INDIVIDUAL GLM-HMM POST PROCESSING
 
