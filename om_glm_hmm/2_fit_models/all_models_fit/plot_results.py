@@ -9,46 +9,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
-    create_violation_mask, get_marginal_posterior, get_was_correct
+    create_violation_mask, get_marginal_posterior, get_global_weights, get_global_trans_mat, load_animal_list
 from simulate_data_from_glm import *
 from ssm.util import find_permutation
-def load_cv_arr(file):
-    container = np.load(file, allow_pickle=True)
-    data = [container[key] for key in container]
-    cvbt_folds_model = data[0]
-    return cvbt_folds_model
 
-def load_glmhmm_data(data_file):
-    container = np.load(data_file, allow_pickle=True)
-    data = [container[key] for key in container]
-    this_hmm_params = data[0]
-    lls = data[1]
-    return [this_hmm_params, lls]
-
-def get_file_name_for_best_model_fold(cvbt_folds_model, K, overall_dir,
-                                      best_init_cvbt_dict):
-    '''
-    Get the file name for the best initialization for the K value specified
-    :param cvbt_folds_model:
-    :param K:
-    :param models:
-    :param overall_dir:
-    :param best_init_cvbt_dict:
-    :return:
-    '''
-    # Identify best fold for best model:
-    # loc_best = K - 1
-    loc_best = 0
-    best_fold = np.where(cvbt_folds_model[loc_best, :] == max(cvbt_folds_model[
-                                                              loc_best, :]))[
-        0][0]
-    base_path = overall_dir / ('GLM_HMM_K_' + str(K)) / ('fold_' + str(
-        best_fold))
-    key_for_dict = '/GLM_HMM_K_' + str(K) + '/fold_' + str(best_fold)
-    best_iter = best_init_cvbt_dict[key_for_dict]
-    raw_file = base_path / ('iter_' + str(
-        best_iter)) / ('glm_hmm_raw_parameters_itr_' + str(best_iter) + '.npz')
-    return raw_file
 
 ######################### PARAMS ####################################################
 K_max = 5
@@ -61,13 +25,149 @@ data_dir = root_data_dir / (root_folder_name +'_data_for_cluster')
 data_individual = data_dir / 'data_by_animal'
 results_dir = root_result_dir / (root_folder_name +'_global_fit')
 results_dir_individual = root_result_dir/ (root_folder_name + '_individual_fit')
+animal_list = load_animal_list(data_individual / 'animal_list.npz')
 # list of columns/predictors name as ordered by pansy
 labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
 # flag for running all_animals analysis
 all_animals=0
 # first index for all animals
-n_session_lst = [1,5]
-n_trials_lst = [10000,400]
+n_session_lst = [1,10]
+n_trials_lst = [5000,250]
+cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
+        '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
+        '#999999', '#e41a1c', '#dede00'
+    ]
+
+# load dictionary for best cv model run
+with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
+    best_init_cvbt_dict = json.load(f)
+# load cv array
+cv_file = results_dir / 'cvbt_folds_model.npz'
+cvbt_folds_model = load_cv_arr(cv_file)
+
+# get file name with best initialization given K value
+n_trials= n_trials_lst[0]
+
+##################### K-STATE GLM FIT CHECK ########################################
+##################### SIMULATE VEC #################################################
+# simulate stim vec
+stim_vec_sim = simulate_stim(n_trials_lst[0]+1)
+# z score stim vec
+z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
+# define col names for simulated dataframe
+col_names = labels_for_plot + ['choice','outcome','stim_org','state','animal']
+# psychometrics stim list - since min/max freq_trans is -1.5/1.5
+bin_lst = np.arange(-1.55, 1.6, 0.1)
+bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
+# iterate over all k-states model
+for K in range(2,K_max+1):
+    # create fig
+    fig, ax= plt.subplots(3,K,figsize=(K+4,8),sharey="row")
+    # initialize simulated array
+    inpt_sim = np.zeros(len(col_names)).reshape(1, -1)
+    # get global weights
+    global_weight_vectors = get_global_weights(results_dir, K)
+    # get global transition matrix
+    global_transition_matrix = get_global_trans_mat(results_dir, K)
+    # get global state dwell times
+    global_dwell_times = 1 / (np.ones(K) - global_transition_matrix.diagonal())
+    state_dwell_times = np.zeros((len(animal_list)+1, K))
+    # iterate over k-state to simulate glm data
+    for k_ind in range(K):
+        # simulate input array and choice
+        inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(global_weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
+        # add original simulated stim vec
+        inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
+        # add state info
+        inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+        # add animal info
+        inpt_sim_tmp = np.append(inpt_sim_tmp, np.zeros(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+        # stack simulated input for each k
+        inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
+
+    # now do it for separate animals
+    for k_ind in range(K):
+        for z,animal in enumerate(animal_list):
+            results_dir_individual_animal = results_dir_individual / animal
+
+            cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
+            cvbt_folds_model = load_cv_arr(cv_file)
+
+            with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
+                best_init_cvbt_dict = json.load(f)
+
+            # Get the file name corresponding to the best initialization for
+            # given K value
+            raw_file = get_file_name_for_best_model_fold(
+                cvbt_folds_model, K, results_dir_individual_animal, best_init_cvbt_dict)
+            hmm_params, lls = load_glmhmm_data(raw_file)
+            weight_vectors = -hmm_params[2]
+            transition_matrix = np.exp(hmm_params[1][0])
+            # state dwell times for individual animals
+            state_dwell_times[z, :] = 1 / (np.ones(K) -
+                                           transition_matrix.diagonal())
+
+            # # simulate input array and choice
+            inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind, :, :]), n_trials,
+                                                                    z_stim_sim)
+            # add original simulated stim vec
+            inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
+            # add state info
+            inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+            # add animal info
+            inpt_sim_tmp = np.append(inpt_sim_tmp, int(float(animal))*np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+            # stack simulated input for each k
+            inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
+
+            # plot individual weights here
+            ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
+
+        ######################## K-STATE WEIGHTS ################################################
+        ax[0, k_ind].plot(labels_for_plot, np.squeeze(global_weight_vectors[k_ind, :, :]), label='global',
+                          color='black', linewidth=1.5)
+        ax[0, k_ind].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+        ax[0, k_ind].axhline(0, linewidth=0.5, linestyle='--')
+        ax[0, k_ind].set_title('state ' + str(k_ind))
+        ######################## DWELL TIMES ####################################################
+        logbins = np.logspace(np.log10(1),
+                              np.log10(max(state_dwell_times[:, k_ind])), 15)
+        # plot dwell times for each state
+        ax[2,k_ind].hist(state_dwell_times[:, k_ind],
+                 bins=logbins,
+                 color=cols[k_ind],
+                 histtype='bar',
+                 rwidth=0.8)
+        ax[2,k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
+                    linestyle='--',
+                    color='k',
+                    lw=1,
+                    label='median')
+        # if k_ind == 0:
+        #     ax[2,k_ind].set_ylabel("# animals", fontsize=12)
+        # ax[2,k_ind].set_xlabel("expected dwell time \n (# trials)",
+        #            fontsize=12)
+
+    # create dataframe
+    inpt_sim_df = pd.DataFrame(data=inpt_sim[1:,:],columns=col_names)
+
+    ##################### PSYCHOMETRIC CURVES ##########################################
+    # get binned freqs for psychometrics
+    inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+    sim_stack = inpt_sim_df.groupby(['binned_freq','state','animal'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
+    sim_stack[-1] = sim_stack[-1].fillna(0)
+    # sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
+    ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
+    for k_ind in range(K):
+        for animal in animal_list:
+            ax[1,k_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[(sim_stack.state==k_ind)&(sim_stack.animal==int(float(animal)))],'--',color=cols[k_ind])
+        ax[1, k_ind].plot(sim_stack.binned_freq.unique(), sim_stack[-1].loc[(sim_stack.state == k_ind)&(sim_stack.animal==0)],color='black')
+        ax[1, k_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
+        ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
+        ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
+    plt.tight_layout()
+    plt.show()
+    fig.savefig('plots/all_K'+ str(K) + '_glmhmm_modelcheck.png',format='png',bbox_inches = "tight")
+
 ######################################################################################
 ##################### ALL ANIMALS ####################################################
 ##################### LOAD DATA ######################################################
@@ -255,6 +355,8 @@ if all_animals:
 animal_lst= [1.0,7.0,9.0,12.0,16.0,17.0,22.0,25.0,27.0]
 animal_lst = [str(x) for x in animal_lst]
 K = 3
+n_session = n_session_lst[-1]
+n_trials = n_trials_lst[-1]
 for animal in animal_lst:
     print(animal)
     results_dir_individual_animal = results_dir_individual / animal
@@ -304,8 +406,6 @@ for animal in animal_lst:
     col_names_glmhmm = labels_for_plot + ['choice','outcome','stim_org','state', 'session','y']
     # for global glmhmm model, multiple sessions simulation will not match the fitted model,
     # since the fitted model used aggregated data
-    n_session = n_session_lst[-1]
-    n_trials = n_trials_lst[-1]
     # instantiate model
     data_hmm = ssm.HMM(K,
                            D,
@@ -514,6 +614,13 @@ violation_idx = np.where(y == -1)[0]
 
 
 # TODO:
+# permutation of states in individual fits don't seem to match global fit -> order problem of states?
+# the higher k-states glmhmm the individual fits seem to not be homogenoues
+# -> problem of high params, low data?
+# -> coincide with multiprocessing application (but it was already implemented with global fit!) -> re run with K=4 individual
+# reorganize code plots to systematically look at the fits
+# -> model fit sanity checks (predictive accuracy, all weights all animals plots, dwell time, etc.)
+# randomize initial condition for simulation?
 # compare simulated and real data, see what the model captures in the data and what's lacking
 # understand the state change dynamics
 # simulate data for each animal, session basis?
