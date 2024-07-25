@@ -126,6 +126,7 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
             # sample data from glm-hmm model
             true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:].reshape(1,-1))
         else:
+            # TODO: modify prefix to be arrays that include past observations
             # with prefix for input-driven obs data simulation
             true_z, true_y = this_hmm.sample(T=1,prefix=(true_z,true_y), input=inpt_arr[-1, :].reshape(1, -1))
         choice_sim = true_y[0][0]
