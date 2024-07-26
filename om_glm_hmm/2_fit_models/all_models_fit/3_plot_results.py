@@ -16,7 +16,7 @@ from ssm.util import find_permutation
 
 ######################### PARAMS ####################################################
 K_max = 5
-root_folder_dir = '/home/anh/Documents'
+root_folder_dir = '/home/anh/Documents/phd'
 root_folder_name = 'om_choice'
 root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
 root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
@@ -29,7 +29,7 @@ animal_list = load_animal_list(data_individual / 'animal_list.npz')
 # list of columns/predictors name as ordered by pansy
 labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
 # first index for all animals
-n_session_lst = [1,10]
+n_session_lst = [1,30]
 n_trials_lst = [5000,250]
 cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
@@ -215,8 +215,8 @@ if all_animals:
         # define col names for simulated dataframe
         col_names_glmhmm = labels_for_plot + ['choice','outcome','stim_org','state', 'session','y']
         # for global glmhmm model, multiple sessions simulation will not match the fitted model, since the fitted model used aggregated data
-        n_session = n_session_lst[0]
-        n_trials = n_trials_lst[0]
+        n_session = n_session_lst[-1]
+        n_trials = n_trials_lst[-1]
         # instantiate model
         data_hmm = ssm.HMM(K, D, M,
                                observations="input_driven_obs",
@@ -228,12 +228,15 @@ if all_animals:
         # initialize simulated array
         glmhmm_inpt_arr = np.zeros(len(col_names_glmhmm)).reshape(1,-1)
         for i in range(n_session):
+            if i == n_session - 1:
+                # for switching label problem
+                n_trials = 5000
             # simulate stim vec
             stim_vec_sim = simulate_stim(n_trials + 1)
             # z score stim vec
             z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
             # simulate data
-            glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr, true_z_past = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim)
+            glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim)
             # append list for model fit and recovery
             glmhmm_inpt_lst.append(glmhmm_inpt)
             glmhmm_y_lst.append(glmhmm_y)
@@ -251,6 +254,7 @@ if all_animals:
             glmhmm_inpt_arr = np.vstack((glmhmm_inpt_arr,glmhmm_inpt))
         # create dataframe for plotting
         glmhmm_sim_df = pd.DataFrame(data=glmhmm_inpt_arr[1:,:], columns=col_names_glmhmm)
+        glmhmm_sim_df.to_csv('simulated_global_om_glmhmm_K'+str(K)+'.csv',index=False)
         # Calculate true loglikelihood
         true_ll = data_hmm.log_probability(glmhmm_y_lst, inputs=glmhmm_inpt_lst)
         print("true ll = " + str(true_ll))
@@ -261,8 +265,8 @@ if all_animals:
         fit_ll = recovered_glmhmm.fit(glmhmm_y_lst, inputs=glmhmm_inpt_lst, method="em", num_iters=N_iters, tolerance=10**-4)
         # permute states
         # have to use the the last session which has huge n_trials beecause not all sessions have 4 states
-        # permute_df = glmhmm_sim_df.loc[(glmhmm_sim_df.session==24)]
-        recovered_glmhmm.permute(find_permutation(glmhmm_sim_df.state.astype('int'), recovered_glmhmm.most_likely_states(np.array(glmhmm_sim_df.y).reshape(-1,1).astype('int'), input=np.array(glmhmm_sim_df[labels_for_plot]))))
+        permute_df = glmhmm_sim_df.loc[(glmhmm_sim_df.session==n_session-1)]
+        recovered_glmhmm.permute(find_permutation(permute_df.state.astype('int'), recovered_glmhmm.most_likely_states(np.array(permute_df.y).reshape(-1,1).astype('int'), input=np.array(permute_df[labels_for_plot]))))
 
         # CHECK PLOTS FOR SIMULATION AND RECOVERY
         # Plot the log probabilities of the true and fit models. Fit model final LL should be greater than or equal to true LL.
@@ -309,7 +313,7 @@ if all_animals:
         fig.suptitle('Generative vs recovered models', fontsize=15, y=0.98)
         fig.subplots_adjust(top=0.85);
         plt.show()
-        fig.savefig('plots/'+ 'all_K' + str(K) + '_simulated_data_model_fit.png', format='png',
+        fig.savefig('plots/'+ 'global_K' + str(K) + '_simulated_data_model_fit.png', format='png',
                     bbox_inches="tight")
 
         ##################### PSYCHOMETRIC CURVES ##########################################
@@ -350,7 +354,7 @@ if all_animals:
                 ax[0, ax_ind].legend(handles, labels,loc='lower right')
         fig.suptitle('All animals')
         plt.tight_layout()
-        fig.savefig('plots/all_K' + str(K) + '_glmhmm_modelsimulations.png', format='png', bbox_inches="tight")
+        fig.savefig('plots/global_K' + str(K) + '_glmhmm_modelsimulations.png', format='png', bbox_inches="tight")
         plt.show()
 
 ######################################################################################
