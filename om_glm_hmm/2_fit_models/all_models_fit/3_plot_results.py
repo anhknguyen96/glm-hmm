@@ -214,7 +214,7 @@ if all_animals:
         # SIMULATE FROM GLMHMM
         # define col names for simulated dataframe
         col_names_glmhmm = labels_for_plot + ['choice','outcome','stim_org','state', 'session','y']
-        # for global glmhmm model, multiple sessions simulation will not match the fitted model, since the fitted model used aggregated data
+        # for global glmhmm model, multiple ses-sions simulation will not match the fitted model, since the fitted model used aggregated data
         n_session = n_session_lst[-1]
         n_trials = n_trials_lst[-1]
         # instantiate model
@@ -267,6 +267,39 @@ if all_animals:
         # have to use the the last session which has huge n_trials beecause not all sessions have 4 states
         permute_df = glmhmm_sim_df.loc[(glmhmm_sim_df.session==n_session-1)]
         recovered_glmhmm.permute(find_permutation(permute_df.state.astype('int'), recovered_glmhmm.most_likely_states(np.array(permute_df.y).reshape(-1,1).astype('int'), input=np.array(permute_df[labels_for_plot]))))
+        # initialize list of inputs and y
+        glmhmm_inpt_recv_lst, glmhmm_y_recv_lst = [], []
+        # initialize simulated array
+        glmhmm_inpt_recv_arr = np.zeros(len(col_names_glmhmm)).reshape(1, -1)
+        for i in range(n_session):
+            if i == n_session - 1:
+                # for switching label problem
+                n_trials = 5000
+            # simulate stim vec
+            stim_vec_sim = simulate_stim(n_trials + 1)
+            # z score stim vec
+            z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
+            # simulate data
+            glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(
+                recovered_glmhmm, n_trials, z_stim_sim)
+            # append list for model fit and recovery
+            glmhmm_inpt_recv_lst.append(glmhmm_inpt)
+            glmhmm_y_recv_lst.append(glmhmm_y)
+            # append array for plotting
+            glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_choice).reshape(-1, 1), axis=1)
+            glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_outcome).reshape(-1, 1), axis=1)
+            glmhmm_inpt = np.append(glmhmm_inpt, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
+            # add state info
+            glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_state_arr).reshape(-1, 1), axis=1)
+            # add session info
+            glmhmm_inpt = np.append(glmhmm_inpt, i * np.ones(glmhmm_inpt.shape[0]).reshape(-1, 1), axis=1)
+            # add y
+            glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_y).reshape(-1, 1), axis=1)
+            # stack array
+            glmhmm_inpt_recv_arr = np.vstack((glmhmm_inpt_recv_arr, glmhmm_inpt))
+        # create dataframe for plotting
+        glmhmm_recv_df = pd.DataFrame(data=glmhmm_inpt_recv_arr[1:, :], columns=col_names_glmhmm)
+        glmhmm_recv_df.to_csv('simulated_recv_global_om_glmhmm_K' + str(K) + '.csv', index=False)
 
         # CHECK PLOTS FOR SIMULATION AND RECOVERY
         # Plot the log probabilities of the true and fit models. Fit model final LL should be greater than or equal to true LL.
@@ -324,6 +357,12 @@ if all_animals:
         glmhmm_sim_df["binned_freq"] = pd.cut(glmhmm_sim_df['stim_org'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
         sim_stack = glmhmm_sim_df.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
         sim_stack[-1] = sim_stack[-1].fillna(0)
+        # get binned freqs for psychometrics for simulated recovered data
+        glmhmm_recv_df["binned_freq"] = pd.cut(glmhmm_recv_df['stim_org'], bins=bin_lst,
+                                              labels=[str(x) for x in bin_name], include_lowest=True)
+        recv_stack = glmhmm_recv_df.groupby(['binned_freq', 'state'])['choice'].value_counts(normalize=True).unstack(
+            'choice').reset_index()
+        recv_stack[-1] = recv_stack[-1].fillna(0)
         # get binned freqs for psychometrics for real data
         inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
         data_stack = inpt_data.groupby(['binned_freq','state'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
@@ -334,24 +373,27 @@ if all_animals:
         fig, ax= plt.subplots(2,K,figsize=(10,6),sharey="row",sharex='row')
         for ax_ind in range(K):
             # plot k-state weights
-            ax[0,ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]),label='data')
-            ax[0,ax_ind].plot(labels_for_plot, np.squeeze(recovered_weights[ax_ind, :, :]),'--',label='simulated')
+            ax[0,ax_ind].plot(labels_for_plot,np.squeeze(weight_vectors[ax_ind,:,:]),label='generated',color='blue')
+            ax[0,ax_ind].plot(labels_for_plot, np.squeeze(recovered_weights[ax_ind, :, :]),'--',label='recovered',color='orange')
             ax[0,ax_ind].set_xticklabels(labels_for_plot, fontsize=12,rotation=45)
             ax[0,ax_ind].axhline(0,linewidth=0.5,linestyle='--')
             ax[0,ax_ind].set_title('state '+ str(ax_ind))
             # plot psychometrics for aggregated real data
             ax[1, ax_ind].plot(sim_stack.binned_freq.unique(), data_stack[0].loc[(data_stack.state == ax_ind)
                                                                                  & (data_stack.binned_freq > -0.7)
-                                                                                 & (data_stack.binned_freq < 0.7)],label='data')
+                                                                                 & (data_stack.binned_freq < 0.7)],label='data',color='black')
             # plot psychometrics for simulated data
-            ax[1,ax_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[sim_stack.state==ax_ind], '--',label='simulated')
+            ax[1,ax_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[sim_stack.state==ax_ind], '--',label='generated',color='blue')
+            # plot psychometrics for recovered data
+            ax[1, ax_ind].plot(recv_stack.binned_freq.unique(), recv_stack[-1].loc[recv_stack.state == ax_ind], '--',
+                               label='recovered',color='orange')
             # miscellaneous
             ax[1, ax_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
             ax[1, ax_ind].axhline(0.5, linewidth=0.5, linestyle='--')
             ax[1, ax_ind].axvline(6, linewidth=0.5, linestyle='--')
             if ax_ind == K-1:
-                handles, labels = ax[0, ax_ind].get_legend_handles_labels()
-                ax[0, ax_ind].legend(handles, labels,loc='lower right')
+                handles, labels = ax[1, ax_ind].get_legend_handles_labels()
+                ax[1, ax_ind].legend(handles, labels, loc='lower right')
         fig.suptitle('All animals')
         plt.tight_layout()
         fig.savefig('plots/global_K' + str(K) + '_glmhmm_modelsimulations.png', format='png', bbox_inches="tight")

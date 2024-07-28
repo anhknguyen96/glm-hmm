@@ -128,7 +128,6 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
             true_z_past = true_z
             true_y_past = true_y
         else:
-            # TODO: modify prefix to be arrays that include past observations
             # with prefix for input-driven obs data simulation
             true_z, true_y = this_hmm.sample(T=1,prefix=(true_z_past,true_y_past), input=inpt_arr[-1, :].reshape(1, -1))
             true_z_past = np.append(true_z_past, true_z)
