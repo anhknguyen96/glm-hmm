@@ -29,7 +29,7 @@ animal_list = load_animal_list(data_individual / 'animal_list.npz')
 # list of columns/predictors name as ordered by pansy
 labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
 # first index for all animals
-n_session_lst = [1,30]
+n_session_lst = [1,50]              # higher n sessions (>=60) seems to yield poorer fit??
 n_trials_lst = [5000,250]
 cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
@@ -231,6 +231,9 @@ if all_animals:
             if i == n_session - 1:
                 # for switching label problem
                 n_trials = 5000
+                # higher state needs more trials for permutation
+                if K == 5:
+                   n_trials = 10000
             # simulate stim vec
             stim_vec_sim = simulate_stim(n_trials + 1)
             # z score stim vec
