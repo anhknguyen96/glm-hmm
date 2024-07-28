@@ -9,14 +9,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
-    create_violation_mask, get_marginal_posterior, get_global_weights, get_global_trans_mat, load_animal_list
+    create_violation_mask, get_marginal_posterior, get_global_weights, get_global_trans_mat, load_animal_list,\
+    load_correct_incorrect_mat
 from simulate_data_from_glm import *
 from ssm.util import find_permutation
 
 
 ######################### PARAMS ####################################################
 K_max = 5
-root_folder_dir = '/home/anh/Documents/phd'
+root_folder_dir = '/home/anh/Documents'
 root_folder_name = 'om_choice'
 root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
 root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
@@ -40,11 +41,132 @@ trouble_animals =['23.0','24.0','26.0']
 animal_list = list(set(animal_list)-set(trouble_animals))
 
 # flag for running all_animals analysis
-all_animals=1
+all_animals= 0
 # flag for running individual animals analysis
 individual_animals=0
 # flag for running k-state glm fit check
 glm_fit_check = 0
+# flag for predictive accuracy plot
+pred_acc_plot = 1
+####################################################################################
+##################### K-STATE GLM PRED ACC & NLL ###################################
+if pred_acc_plot:
+    K = 5
+    K_plot = 5
+    D, M, C = 1, 3, 2
+
+    plt_xticks_location = np.arange(K_plot)
+    plt_xticks_label =  [str(x) for x in (plt_xticks_location + 1)]
+    idx_cv_arr = [1,2]
+
+    global_weights = get_global_weights(results_dir, K_plot)
+
+    # =========== NLL ====================================
+    # plt.subplot(3, 3, 1)
+    fig, ax = plt.subplots(figsize=(3, 3))
+    across_animals = []
+    for animal in animal_list:
+        results_dir_individual_animal = results_dir_individual / animal
+        cv_arr = load_cv_arr(results_dir_individual_animal / "cvbt_folds_model.npz")
+        # idx_range = len(cv_arr) - (K-K_plot)
+        # idx_tmp = np.arange(idx_range)
+        # idx = np.delete(idx_tmp, idx_cv_arr)
+        # cv_arr_for_plotting = cv_arr[idx, :]
+        mean_cvbt = np.mean(cv_arr, axis=1)
+        across_animals.append(mean_cvbt - mean_cvbt[0])
+        plt.plot(plt_xticks_location,
+                     mean_cvbt - mean_cvbt[0],
+                     '-o',
+                     color='#999999',
+                     zorder=0,
+                     alpha=0.6,
+                     lw=1.5,
+                     markersize=4)
+    across_animals = np.array(across_animals)
+    mean_cvbt = np.mean(np.array(across_animals), axis=0)
+    plt.plot(plt_xticks_location,
+             mean_cvbt - mean_cvbt[0],
+             '-o',
+             color='k',
+             zorder=1,
+             alpha=1,
+             lw=1.5,
+             markersize=4,
+             label='mean')
+    plt.xticks(plt_xticks_location, plt_xticks_label,
+               fontsize=10)
+    plt.ylabel("$\Delta$ test LL (bits/trial)", fontsize=10, labelpad=0)
+    plt.xlabel("# states", fontsize=10, labelpad=0)
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    plt.ylim((-0.01, 0.24))
+    # plt.yticks(color = cols[0])
+    leg = plt.legend(fontsize=10,
+                     labelspacing=0.05,
+                     handlelength=1.4,
+                     borderaxespad=0.05,
+                     borderpad=0.05,
+                     framealpha=0,
+                     bbox_to_anchor=(1.2, 0.90),
+                     loc='lower right',
+                     markerscale=0)
+    for legobj in leg.legendHandles:
+        legobj.set_linewidth(1.0)
+    fig.savefig('plots/fig4_a'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
+    # =========== PRED ACC =========================
+    # plt.subplot(3, 3, 2)
+    fig, ax = plt.subplots(figsize=(3, 3))
+    mean_across_animals = []
+    num_trials_all_animals = 0
+    for z, animal in enumerate(animal_list):
+        results_dir_individual_animal = results_dir_individual / animal
+
+        correct_mat, num_trials = load_correct_incorrect_mat(
+            results_dir_individual_animal / "correct_incorrect_mat.npz")
+        num_trials_all_animals += np.sum(num_trials)
+        if z == 0:
+            trials_correctly_predicted_all_folds = np.sum(correct_mat, axis=1)
+        else:
+            trials_correctly_predicted_all_folds = \
+                trials_correctly_predicted_all_folds + np.sum(
+                correct_mat, axis=1)
+
+        pred_acc_arr = load_cv_arr(results_dir_individual_animal / "predictive_accuracy_mat.npz")
+        # this is because predictive accuracy is not calculated when lapse model is not calculated
+        pred_acc_arr_for_plotting = pred_acc_arr[plt_xticks_location,:]
+        mean_acc = np.mean(pred_acc_arr_for_plotting, axis=1)
+        plt.plot(plt_xticks_location,
+                     mean_acc - mean_acc[0],
+                     '-o',
+                     color='#EEDFCC',
+                     zorder=0,
+                     alpha=0.6,
+                     lw=1.5,
+                     markersize=4)
+        mean_across_animals.append(mean_acc - mean_acc[0])
+    ymin = -0.01
+    ymax = 0.15
+    plt.xticks(plt_xticks_location, plt_xticks_label,
+               fontsize=10)
+    plt.ylim((ymin, ymax))
+    trial_nums = (trials_correctly_predicted_all_folds -
+                  trials_correctly_predicted_all_folds[0])
+    plt.plot(plt_xticks_location,
+             np.mean(mean_across_animals, axis=0),
+             '-o',
+             color='#8B8378',
+             zorder=0,
+             alpha=1,
+             markersize=4,
+             lw=1.5,
+             label='mean')
+    plt.ylabel("$\Delta$ pred acc. (%)", fontsize=10, labelpad=0)
+    plt.xlabel("# states", fontsize=10, labelpad=0)
+    plt.yticks([0, 0.05, 0.1], ["0", "5%", '10%'])
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    fig.savefig('plots/fig4_b'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
+
 ##################### K-STATE GLM FIT CHECK ########################################
 ##################### SIMULATE VEC #################################################
 if glm_fit_check:

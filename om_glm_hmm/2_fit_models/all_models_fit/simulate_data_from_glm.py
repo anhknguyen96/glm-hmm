@@ -1,6 +1,6 @@
 import numpy as np
 import ssm
-
+import pandas as pd
 def simulate_stim(n_trials):
     """
     n_trials: desired simulated trials
@@ -157,17 +157,46 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
     y_sim = np.array(y_sim).reshape(-1,1)
 
     return inpt_arr, y_sim, y, outcome, state_arr
-    # example from notebook
-    # Generate a sequence of latents and choices for each session
-    # true_latents, true_choices = [], []
-    # for sess in range(num_sess):
-    #     true_z, true_y = true_glmhmm.sample(num_trials_per_sess, input=inpts[sess])
-    #     true_latents.append(true_z)
-    #     true_choices.append(true_y)
-    #
-    # # Calculate true loglikelihood
-    # true_ll = true_glmhmm.log_probability(true_choices, inputs=inpts)
-    # print("true ll = " + str(true_ll))
+
+def get_simulated_df_from_glmhmm_pfailpchoice_model(n_session,n_trials,col_names_glmhmm,data_hmm):
+    """
+    Create simulated dataframe from glmhmm pfail-pchoice model
+
+    data_hmm: ssm HMM object
+    """
+    # initialize list of inputs and y
+    glmhmm_inpt_lst, glmhmm_y_lst = [], []
+    # initialize simulated array
+    glmhmm_inpt_arr = np.zeros(len(col_names_glmhmm)).reshape(1, -1)
+    for i in range(n_session):
+        if i == n_session - 1:
+            # for switching label problem
+            n_trials = 5000
+        # simulate stim vec
+        stim_vec_sim = simulate_stim(n_trials + 1)
+        # z score stim vec
+        z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
+        # simulate data
+        glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(
+            data_hmm, n_trials, z_stim_sim)
+        # append list for model fit and recovery
+        glmhmm_inpt_lst.append(glmhmm_inpt)
+        glmhmm_y_lst.append(glmhmm_y)
+        # append array for plotting
+        glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_choice).reshape(-1, 1), axis=1)
+        glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_outcome).reshape(-1, 1), axis=1)
+        glmhmm_inpt = np.append(glmhmm_inpt, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
+        # add state info
+        glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_state_arr).reshape(-1, 1), axis=1)
+        # add session info
+        glmhmm_inpt = np.append(glmhmm_inpt, i * np.ones(glmhmm_inpt.shape[0]).reshape(-1, 1), axis=1)
+        # add y
+        glmhmm_inpt = np.append(glmhmm_inpt, np.array(glmhmm_y).reshape(-1, 1), axis=1)
+        # stack array
+        glmhmm_inpt_arr = np.vstack((glmhmm_inpt_arr, glmhmm_inpt))
+    # create dataframe for plotting
+    glmhmm_sim_df = pd.DataFrame(data=glmhmm_inpt_arr[1:, :], columns=col_names_glmhmm)
+    return glmhmm_sim_df
 
 
 
