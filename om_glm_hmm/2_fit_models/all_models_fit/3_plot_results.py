@@ -781,96 +781,101 @@ if individual_animals:
 ##############################################################################################
 ##################### PLOT POSTERIOR PROBS (ANIMAL SPECIFIC) #################################
 if one_animal:
-    animal = '17.0'
+    animal_lst = [17.0, 27.0, 12.0]
+    animal_lst = [str(x) for x in animal_lst]
     K = 4
-    results_dir_individual_animal = results_dir_individual / animal
-    cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
-    cvbt_folds_model = load_cv_arr(cv_file)
+    for animal in animal_list:
 
-    with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
-        best_init_cvbt_dict = json.load(f)
+        results_dir_individual_animal = results_dir_individual / animal
+        cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
+        cvbt_folds_model = load_cv_arr(cv_file)
 
-    # Get the file name corresponding to the best initialization for given K value
-    raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
-                                                 results_dir_individual_animal,
-                                                 best_init_cvbt_dict)
-    hmm_params, lls = load_glmhmm_data(raw_file)
+        with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
+            best_init_cvbt_dict = json.load(f)
 
-    # Also get data for animal:
-    inpt, y, session = load_data(data_individual / (animal + '_processed.npz'))
-    all_sessions = np.unique(session)
-    # prepare data
-    violation_idx = np.where(y == -1)[0]
-    nonviolation_idx, mask = create_violation_mask(violation_idx,
-                                                   inpt.shape[0])
-    y[np.where(y == -1), :] = 1
-    inputs, datas, train_masks = partition_data_by_session(
-        np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
-    # get posterior probs for state inference
-    posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
-                                             hmm_params, K, range(K))
-    states_max_posterior = np.argmax(posterior_probs, axis=1)
+        # Get the file name corresponding to the best initialization for given K value
+        raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
+                                                     results_dir_individual_animal,
+                                                     best_init_cvbt_dict)
+        hmm_params, lls = load_glmhmm_data(raw_file)
 
-    sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
-                    all_sessions[9],all_sessions[10],all_sessions[11],all_sessions[12],
-                    all_sessions[14],all_sessions[15],all_sessions[16],all_sessions[17],
-                   all_sessions[24],all_sessions[25],all_sessions[26],all_sessions[27],
-                   all_sessions[29],all_sessions[30],all_sessions[31],all_sessions[32]]
-    plt_row_ind = [1,2,3,4,5]
-    plt_sess_ind = [4,8,12,16,20]
-    cols = ['#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-                '#999999', '#e41a1c', '#dede00']
-    fig,ax = plt.subplots(5,4,figsize=(10, 12),sharey='row')
-    # plt.subplots_adjust(wspace=0.2, hspace=0.9)
-    # for i, sess in enumerate(sess_to_plot):
-    #     # plt.subplot(2, K, i+1)
-    #     ax[0,i].plot(labels_for_plot, np.squeeze(weight_vectors[i, :, :]))
-    #     ax[0,i].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
-    #     ax[0,i].axhline(0, linewidth=0.5, linestyle='--')
+        # Also get data for animal:
+        inpt, y, session = load_data(data_individual / (animal + '_processed.npz'))
+        all_sessions = np.unique(session)
+        # prepare data
+        violation_idx = np.where(y == -1)[0]
+        nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                       inpt.shape[0])
+        y[np.where(y == -1), :] = 1
+        inputs, datas, train_masks = partition_data_by_session(
+            np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+        # get posterior probs for state inference
+        posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                                 hmm_params, K, range(K))
+        states_max_posterior = np.argmax(posterior_probs, axis=1)
 
-    plt_row_index = 0
-    time_plot = 0
-    for i, sess in enumerate(sess_to_plot):
-        time_plot += 1
-        if time_plot == 5:
-            time_plot = 0
-        if i in plt_sess_ind:
-            plt_row_index += 1
-        # plt.subplot(2, K, i + K+1)
-        # get session index from session array
-        idx_session = np.where(session == sess)
-        # get input according to the session index
-        this_inpt = inpt[idx_session[0], :]
-        # get posterior probs according to session index
-        posterior_probs_this_session = posterior_probs[idx_session[0], :]
-        # Plot trial structure for this session too:
-        for k in range(K):
-            ax[plt_row_index,time_plot-1].plot(posterior_probs_this_session[:, k],
-                     label="State " + str(k + 1), lw=1,
-                     color=cols[k])
-        # get max probs of state of each trial
-        states_this_sess = states_max_posterior[idx_session[0]]
-        # get state change index
-        state_change_locs = np.where(np.abs(np.diff(states_this_sess)) > 0)[0]
-        # plot state change
-        for change_loc in state_change_locs:
-            ax[plt_row_index,time_plot-1].axvline(x=change_loc, color='k', lw=0.5, linestyle='--')
-        plt.ylim((-0.01, 1.01))
-        plt.title("example session " + str(i + 1), fontsize=10)
-        plt.gca().spines['right'].set_visible(False)
-        plt.gca().spines['top'].set_visible(False)
-        if i == 0:
-            plt.xlabel("trial #", fontsize=10)
-            plt.ylabel("p(state)", fontsize=10)
-        if i == len(sess_to_plot)-1:
-            plt.legend(loc='upper right', frameon=False)
-        else:
-            plt.legend('')
-    plt.show()
+        sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
+                        all_sessions[9],all_sessions[10],all_sessions[11],all_sessions[12],
+                        all_sessions[14],all_sessions[15],all_sessions[16],all_sessions[17],
+                       all_sessions[24],all_sessions[25],all_sessions[26],all_sessions[27],
+                       all_sessions[29],all_sessions[30],all_sessions[31],all_sessions[32]]
+        plt_row_ind = [1,2,3,4,5]
+        plt_sess_ind = [4,8,12,16,20]
+
+        fig,ax = plt.subplots(5,4,figsize=(10, 12),sharey='row')
+        # plt.subplots_adjust(wspace=0.2, hspace=0.9)
+        # for i, sess in enumerate(sess_to_plot):
+        #     # plt.subplot(2, K, i+1)
+        #     ax[0,i].plot(labels_for_plot, np.squeeze(weight_vectors[i, :, :]))
+        #     ax[0,i].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+        #     ax[0,i].axhline(0, linewidth=0.5, linestyle='--')
+
+        plt_row_index = 0
+        time_plot = 0
+        for i, sess in enumerate(sess_to_plot):
+            time_plot += 1
+            if time_plot == 4:
+                time_plot = 0
+            if i in plt_sess_ind:
+                plt_row_index += 1
+            # get session index from session array
+            idx_session = np.where(session == sess)
+            # get input according to the session index
+            this_inpt = inpt[idx_session[0], :]
+            # get posterior probs according to session index
+            posterior_probs_this_session = posterior_probs[idx_session[0], :]
+            # Plot trial structure for this session too:
+            for k in range(K):
+                ax[plt_row_index,time_plot-1].plot(posterior_probs_this_session[:, k],
+                         label="State " + str(k + 1), lw=1,
+                         color=cols[k])
+            # get max probs of state of each trial
+            states_this_sess = states_max_posterior[idx_session[0]]
+            # get state change index
+            state_change_locs = np.where(np.abs(np.diff(states_this_sess)) > 0)[0]
+            # plot state change
+            for change_loc in state_change_locs:
+                ax[plt_row_index,time_plot-1].axvline(x=change_loc, color='k', lw=0.5, linestyle='--')
+            plt.ylim((-0.01, 1.01))
+            plt.title("example session " + str(i + 1), fontsize=10)
+            plt.gca().spines['right'].set_visible(False)
+            plt.gca().spines['top'].set_visible(False)
+            if i == 0:
+                plt.xlabel("trial #", fontsize=10)
+                plt.ylabel("p(state)", fontsize=10)
+            if i == len(sess_to_plot)-1:
+                handles, labels = ax[plt_row_index, time_plot-1].get_legend_handles_labels()
+                ax[plt_row_index, time_plot-1].legend(handles, labels, loc='lower right')
+            ax[plt_row_index, time_plot - 1].set_title(str(sess))
+        fig.suptitle('State change dynamics '+animal)
+        fig.subplots_adjust(top=0.92, hspace=0.4);
+        fig.savefig('plots/'+animal+'_state_changedynamics_K' + str(K) + '.png', format='png', bbox_inches="tight")
+        plt.show()
 
 
 # TODO:
 
+# https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
 # -> model fit sanity checks (predictive accuracy, all weights all animals plots, dwell time, etc.)
 # randomize initial condition for simulation?
 # compare simulated and real data, see what the model captures in the data and what's lacking
