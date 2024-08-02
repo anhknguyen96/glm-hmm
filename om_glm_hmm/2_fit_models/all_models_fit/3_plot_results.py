@@ -49,7 +49,9 @@ glm_fit_check = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
 # flag for one animal
-one_animal = 1
+one_animal = 0
+
+exploratory_plot = 1
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
 if pred_acc_plot:
@@ -871,6 +873,55 @@ if one_animal:
         fig.subplots_adjust(top=0.92, hspace=0.4);
         fig.savefig('plots/'+animal+'_state_changedynamics_K' + str(K) + '.png', format='png', bbox_inches="tight")
         plt.show()
+
+##############################################################################################
+##################### EXPLORATORY PLOTS ######################################################
+if exploratory_plot:
+    # load dictionary for best cv model run
+    with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
+        best_init_cvbt_dict = json.load(f)
+    # load cv array
+    cv_file = results_dir / 'cvbt_folds_model.npz'
+    cvbt_folds_model = load_cv_arr(cv_file)
+
+    K = 4
+    # load animal data for simulation
+    inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
+    inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
+    # create dataframe all animals for plotting
+    inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
+    inpt_data = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
+    inpt_data['choice'] = y
+    # prepare data
+    violation_idx = np.where(y == -1)[0]
+    nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                   inpt.shape[0])
+    y[np.where(y == -1), :] = 1
+    inputs, datas, train_masks = partition_data_by_session(
+        np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+
+    raw_file = get_file_name_for_best_model_fold(
+        cvbt_folds_model, K, results_dir, best_init_cvbt_dict)
+    hmm_params, lls = load_glmhmm_data(raw_file)
+    # get posterior probs for state inference
+    posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                             hmm_params, K, range(K))
+    states_max_posterior = np.argmax(posterior_probs, axis=1)
+    # create state column
+    inpt_data['state'] = states_max_posterior
+    # get mouse and session id
+    inpt_data['session_info'] = session
+    inpt_data[['mouse_id','session_id']] = inpt_data['session_info'].str.split('s',expand=True)
+    inpt_data['mouse_id'] = inpt_data['mouse_id'].str.slice(start=1)
+    # transform choice (one-hot encoding) to convenient encoding to create success colum
+    inpt_data['choice_trans'] = inpt_data['choice'].map({1:1, 0:-1})
+    inpt_data['success'] = np.zeros(len(inpt_data))
+    inpt_data['success'] = np.where(inpt_data['choice_trans']*inpt_data['stim'] < 0, 1, 0)
+    # create stacked dataframe for PE plotting
+    data_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
+    # TODO: which state is which?????
+    sns.pointplot(data=data_stack.loc[(data_stack.pfail==1)],x='state',y=1,hue='mouse_id');plt.show()
+
 
 
 # TODO:
