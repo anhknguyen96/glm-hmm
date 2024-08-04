@@ -10,12 +10,15 @@ import seaborn as sns
 from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
     create_violation_mask, get_marginal_posterior, get_global_weights, get_global_trans_mat, load_animal_list,\
-    load_correct_incorrect_mat
+    load_correct_incorrect_mat, calculate_state_permutation
 from simulate_data_from_glm import *
 from ssm.util import find_permutation
 
 
 ######################### PARAMS ####################################################
+# NOTES:
+# individual glmhmm are initialized by permuted global glmhmm weights, so there needs not be permutation params for plotting
+# if matching between indiv and global glmhmm weights is desired, permutation needs to be passed when calling global glmhmm
 K_max = 5
 root_folder_dir = '/home/anh/Documents'
 root_folder_name = 'om_choice'
@@ -903,9 +906,12 @@ if exploratory_plot:
     raw_file = get_file_name_for_best_model_fold(
         cvbt_folds_model, K, results_dir, best_init_cvbt_dict)
     hmm_params, lls = load_glmhmm_data(raw_file)
+    # since this is all animals and the original glmhmm params are not permuted
+    permutation = calculate_state_permutation(hmm_params)
     # get posterior probs for state inference
+    # replacing range(K) with permutation helps align state of the global with individual glmhmm states' weights
     posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
-                                             hmm_params, K, range(K))
+                                             hmm_params, K, permutation)
     states_max_posterior = np.argmax(posterior_probs, axis=1)
     # create state column
     inpt_data['state'] = states_max_posterior
@@ -919,17 +925,69 @@ if exploratory_plot:
     inpt_data['success'] = np.where(inpt_data['choice_trans']*inpt_data['stim'] < 0, 1, 0)
     # create stacked dataframe for PE plotting
     data_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
-    # TODO: which state is which?????
     sns.pointplot(data=data_stack.loc[(data_stack.pfail==1)],x='state',y=1,hue='mouse_id');plt.show()
+    diff_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff(periods=-1).reset_index()
+    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
+    plt.show()
 
+    # each animal concat
+    inpt_data_all = pd.DataFrame()
+    for animal in animal_list:
+        print(animal)
+        results_dir_individual_animal = results_dir_individual / animal
+        cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
+        cvbt_folds_model = load_cv_arr(cv_file)
 
+        with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
+            best_init_cvbt_dict = json.load(f)
+
+        # Get the file name corresponding to the best initialization for given K value
+        raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
+                                                     results_dir_individual_animal,
+                                                     best_init_cvbt_dict)
+        hmm_params, lls = load_glmhmm_data(raw_file)
+
+        # Save parameters for initializing individual fits
+        weight_vectors = -hmm_params[2]
+        log_transition_matrix = hmm_params[1][0]
+        init_state_dist = hmm_params[0][0]
+        # Also get data for animal:
+        inpt, y, session = load_data(data_individual / (animal + '_processed.npz'))
+        inpt_unnorm, _, _ = load_data(data_individual / (animal + '_unnormalized.npz'))
+        all_sessions = np.unique(session)
+        # create dataframe single animals for plotting
+        inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
+        inpt_data = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
+        inpt_data['choice'] = y
+        # prepare data
+        violation_idx = np.where(y == -1)[0]
+        nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                       inpt.shape[0])
+        y[np.where(y == -1), :] = 1
+        inputs, datas, train_masks = partition_data_by_session(
+            np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+        M = inputs[0].shape[1]
+        D = datas[0].shape[1]
+        # get posterior probs for state inference
+        posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                                 hmm_params, K, range(K))
+        states_max_posterior = np.argmax(posterior_probs, axis=1)
+        inpt_data['state'] = states_max_posterior
+        inpt_data['mouse_id'] = np.ones(len(inpt_data)) * int(float(animal))
+        # transform choice (one-hot encoding) to convenient encoding to create success colum
+        inpt_data['choice_trans'] = inpt_data['choice'].map({1: 1, 0: -1})
+        inpt_data['success'] = np.zeros(len(inpt_data))
+        inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
+        inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
+
+    data_stack = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
+    sns.pointplot(data=data_stack.loc[(data_stack.pfail==1)],x='state',y=1,hue='mouse_id');plt.show()
+    diff_stack = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff(periods=-1).reset_index()
+    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
+    plt.show()
 
 # TODO:
-# if animal == "ibl_witten_05" or animal == "CSHL_001":
-#     permutation = calculate_state_permutation(hmm_params)
-# else:
-#     permutation = range(K)
-
+# figure out state transition dynamics
 # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
 # -> model fit sanity checks (predictive accuracy, all weights all animals plots, dwell time, etc.)
 # randomize initial condition for simulation?
