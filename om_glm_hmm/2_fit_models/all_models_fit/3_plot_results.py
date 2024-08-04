@@ -601,7 +601,7 @@ if individual_animals:
             for i in range(n_session):
                 if i == n_session-1:
                     # for switching label problem
-                    n_trials = 5000
+                    n_trials = 7500
                 # simulate stim vec
                 stim_vec_sim = simulate_stim(n_trials + 1)
                 # z score stim vec
@@ -925,6 +925,10 @@ if exploratory_plot:
 
 
 # TODO:
+# if animal == "ibl_witten_05" or animal == "CSHL_001":
+#     permutation = calculate_state_permutation(hmm_params)
+# else:
+#     permutation = range(K)
 
 # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
 # -> model fit sanity checks (predictive accuracy, all weights all animals plots, dwell time, etc.)
