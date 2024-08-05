@@ -918,17 +918,16 @@ if exploratory_plot:
     # get mouse and session id
     inpt_data['session_info'] = session
     inpt_data[['mouse_id','session_id']] = inpt_data['session_info'].str.split('s',expand=True)
-    inpt_data['mouse_id'] = inpt_data['mouse_id'].str.slice(start=1)
+    inpt_data['mouse_id'] = np.zeros(len(inpt_data))
     # transform choice (one-hot encoding) to convenient encoding to create success colum
     inpt_data['choice_trans'] = inpt_data['choice'].map({1:1, 0:-1})
     inpt_data['success'] = np.zeros(len(inpt_data))
     inpt_data['success'] = np.where(inpt_data['choice_trans']*inpt_data['stim'] < 0, 1, 0)
     # create stacked dataframe for PE plotting
     data_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
-    sns.pointplot(data=data_stack.loc[(data_stack.pfail==1)],x='state',y=1,hue='mouse_id');plt.show()
-    diff_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff(periods=-1).reset_index()
-    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
-    plt.show()
+    # sns.pointplot(data=data_stack.loc[(data_stack.pfail==1)],x='state',y=1,hue='mouse_id');plt.show()
+    diff_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
+    # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
 
     # each animal concat
     inpt_data_all = pd.DataFrame()
@@ -966,8 +965,7 @@ if exploratory_plot:
         y[np.where(y == -1), :] = 1
         inputs, datas, train_masks = partition_data_by_session(
             np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
-        M = inputs[0].shape[1]
-        D = datas[0].shape[1]
+
         # get posterior probs for state inference
         posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
                                                  hmm_params, K, range(K))
@@ -980,10 +978,15 @@ if exploratory_plot:
         inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
 
-    data_stack = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
-    sns.pointplot(data=data_stack.loc[(data_stack.pfail==1)],x='state',y=1,hue='mouse_id');plt.show()
-    diff_stack = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff(periods=-1).reset_index()
-    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
+    data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
+    fig, ax = plt.subplots(figsize=(5, 6))
+    sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax,linestyles='--',legend=0);
+    sns.pointplot(data=data_stack.loc[(data_stack.pfail==0)],x='state',y=1,ax=ax, color='k',legend=0);plt.legend([],[], frameon=False);plt.show()
+
+    diff_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
+    fig, ax = plt.subplots(figsize=(5, 6))
+    sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax,linestyles='--',legend=0);
+    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax, color='k',legend=0);plt.legend([],[], frameon=False);plt.show()
     plt.show()
 
 # TODO:
