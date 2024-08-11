@@ -979,15 +979,26 @@ if exploratory_plot:
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
 
     data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
-    fig, ax = plt.subplots(figsize=(5, 6))
-    sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax,linestyles='--',legend=0);
-    sns.pointplot(data=data_stack.loc[(data_stack.pfail==0)],x='state',y=1,ax=ax, color='k',legend=0);plt.legend([],[], frameon=False);plt.show()
+    fig, ax = plt.subplots(2,1,figsize=(6, 10))
+    sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax[0],linestyles='--',legend=0);
+    sns.pointplot(data=data_stack.loc[(data_stack.pfail==0)],x='state',y=1,ax=ax[0], color='k',legend=0);ax[0].legend([],[], frameon=False)
 
     diff_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
-    fig, ax = plt.subplots(figsize=(5, 6))
-    sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax,linestyles='--',legend=0);
-    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax, color='k',legend=0);plt.legend([],[], frameon=False);plt.show()
+    # fig, ax = plt.subplots(figsize=(5, 6))
+    sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax[1],linestyles='--',legend=0);
+    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax[1], color='k',legend=0);ax[1].legend([],[], frameon=False);plt.show()
     plt.show()
+
+    inpt_data_all['pstim'] = inpt_data_all['stim'].shift(periods=1, fill_value=0)
+    inpt_data_all['pchoice_trans'] = inpt_data_all['pchoice'].map({1: 1, 0: -1})
+    inpt_data_all['resp_error'] = 2 * inpt_data_all['choice_trans'] - inpt_data_all['stim']
+    inpt_data_all['diff_pchoice_stim'] = 2 * inpt_data_all['pchoice_trans'] - inpt_data_all['stim']
+    inpt_data_all['diff_stim'] = inpt_data_all['pstim'] - inpt_data_all['stim']
+    inpt_data_all.to_csv('/home/anh/Documents/om_choice/data/om_choice_data_for_cluster/om_state_info.csv')
+    cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
+    g = sns.FacetGrid(inpt_data_all, row='state', col='pfail', hue='resp_error',height=3.5, aspect=.95)
+    g.map_dataframe(sns.scatterplot, x='diff_pchoice_stim', y='diff_stim'); plt.show()
+    # g.set(ylim=(0.5, 1), xticklabels=['pL-S+', 'pL+S+'])
 
 # TODO:
 # figure out state transition dynamics
