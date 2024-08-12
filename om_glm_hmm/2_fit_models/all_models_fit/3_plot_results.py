@@ -994,10 +994,22 @@ if exploratory_plot:
     inpt_data_all['resp_error'] = 2 * inpt_data_all['choice_trans'] - inpt_data_all['stim']
     inpt_data_all['diff_pchoice_stim'] = 2 * inpt_data_all['pchoice_trans'] - inpt_data_all['stim']
     inpt_data_all['diff_stim'] = inpt_data_all['pstim'] - inpt_data_all['stim']
-    inpt_data_all.to_csv('/home/anh/Documents/om_choice/data/om_choice_data_for_cluster/om_state_info.csv')
+    # inpt_data_all.to_csv('/home/anh/Documents/om_choice/data/om_choice_data_for_cluster/om_state_info.csv')
+
+    # since min/max freq_trans is -1.5/1.5
+    bin_lst = np.arange(-1.55, 1.6, 0.1)
+    bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
+    # get binned freqs for psychometrics for simulated data
+    inpt_data_all["binned_freq"] = pd.cut(inpt_data_all['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
+                                          include_lowest=True)
+    inpt_stack = inpt_data_all.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
+        'choice').reset_index()
+    inpt_stack[0] = inpt_stack[0].fillna(0)
+    inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
+
     cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
-    g = sns.FacetGrid(inpt_data_all, row='state', col='pfail', hue='resp_error',height=3.5, aspect=.95)
-    g.map_dataframe(sns.scatterplot, x='diff_pchoice_stim', y='diff_stim'); plt.show()
+    g = sns.FacetGrid(inpt_stack, col='state', hue='pfail',height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend();plt.show()
     # g.set(ylim=(0.5, 1), xticklabels=['pL-S+', 'pL+S+'])
 
 # TODO:
