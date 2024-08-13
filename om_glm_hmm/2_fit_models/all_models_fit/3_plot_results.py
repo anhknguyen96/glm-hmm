@@ -20,7 +20,7 @@ from ssm.util import find_permutation
 # individual glmhmm are initialized by permuted global glmhmm weights, so there needs not be permutation params for plotting
 # if matching between indiv and global glmhmm weights is desired, permutation needs to be passed when calling global glmhmm
 K_max = 5
-root_folder_dir = '/home/anh/Documents'
+root_folder_dir = '/home/anh/Documents/phd'
 root_folder_name = 'om_choice'
 root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
 root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
@@ -929,6 +929,8 @@ if exploratory_plot:
     diff_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
     # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
 
+    # this is to get other columns for analysis
+    raw_df = pd.read_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
     # each animal concat
     inpt_data_all = pd.DataFrame()
     for animal in animal_list:
@@ -975,7 +977,10 @@ if exploratory_plot:
         # transform choice (one-hot encoding) to convenient encoding to create success colum
         inpt_data['choice_trans'] = inpt_data['choice'].map({1: 1, 0: -1})
         inpt_data['success'] = np.zeros(len(inpt_data))
-        inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
+        # this assignment will fail if stim == 0
+        # inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
+        inpt_data['success'] = np.asarray(raw_df['success'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
+        inpt_data['RT'] = np.asarray(raw_df['RT'].loc[raw_df['mouse_id'] == float(animal)])
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
 
     data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
@@ -990,11 +995,10 @@ if exploratory_plot:
     plt.show()
 
     inpt_data_all['pstim'] = inpt_data_all['stim'].shift(periods=1, fill_value=0)
-    inpt_data_all['pchoice_trans'] = inpt_data_all['pchoice'].map({1: 1, 0: -1})
     inpt_data_all['resp_error'] = 2 * inpt_data_all['choice_trans'] - inpt_data_all['stim']
     inpt_data_all['diff_pchoice_stim'] = 2 * inpt_data_all['pchoice_trans'] - inpt_data_all['stim']
     inpt_data_all['diff_stim'] = inpt_data_all['pstim'] - inpt_data_all['stim']
-    # inpt_data_all.to_csv('/home/anh/Documents/om_choice/data/om_choice_data_for_cluster/om_state_info.csv')
+    inpt_data_all.to_csv('/home/anh/Documents/om_choice/data/om_choice_data_for_cluster/om_state_info.csv')
 
     # since min/max freq_trans is -1.5/1.5
     bin_lst = np.arange(-1.55, 1.6, 0.1)
@@ -1008,7 +1012,7 @@ if exploratory_plot:
     inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
 
     cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
-    g = sns.FacetGrid(inpt_stack, col='state', hue='pfail',height=3.5, aspect=.95)
+    g = sns.FacetGrid(inpt_stack, row='choice_congruent',col='state', hue='pfail',height=3.5, aspect=.95)
     g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend();plt.show()
     # g.set(ylim=(0.5, 1), xticklabels=['pL-S+', 'pL+S+'])
 
