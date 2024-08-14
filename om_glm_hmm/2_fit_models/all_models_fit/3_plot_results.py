@@ -888,6 +888,9 @@ if exploratory_plot:
     cvbt_folds_model = load_cv_arr(cv_file)
 
     K = 4
+    # since min/max freq_trans is -1.5/1.5
+    bin_lst = np.arange(-1.55, 1.6, 0.1)
+    bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
     # load animal data for simulation
     inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
     inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
@@ -981,31 +984,25 @@ if exploratory_plot:
         # inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
         inpt_data['success'] = np.asarray(raw_df['success'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
         inpt_data['RT'] = np.asarray(raw_df['RT'].loc[raw_df['mouse_id'] == float(animal)])
+        # get binned freqs for psychometrics
+        inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
+                                              include_lowest=True)
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
 
-    data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
-    fig, ax = plt.subplots(2,1,figsize=(6, 10))
-    sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax[0],linestyles='--',legend=0);
-    sns.pointplot(data=data_stack.loc[(data_stack.pfail==0)],x='state',y=1,ax=ax[0], color='k',legend=0);ax[0].legend([],[], frameon=False)
+    inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
 
-    diff_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
-    # fig, ax = plt.subplots(figsize=(5, 6))
-    sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax[1],linestyles='--',legend=0);
-    sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax[1], color='k',legend=0);ax[1].legend([],[], frameon=False);plt.show()
-    plt.show()
+    # data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
+    # fig, ax = plt.subplots(2,1,figsize=(6, 10))
+    # sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax[0],linestyles='--',legend=0);
+    # sns.pointplot(data=data_stack.loc[(data_stack.pfail==0)],x='state',y=1,ax=ax[0], color='k',legend=0);ax[0].legend([],[], frameon=False)
+    #
+    # diff_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
+    # # fig, ax = plt.subplots(figsize=(5, 6))
+    # sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax[1],linestyles='--',legend=0);
+    # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax[1], color='k',legend=0);ax[1].legend([],[], frameon=False);plt.show()
+    # plt.show()
 
-    inpt_data_all['pstim'] = inpt_data_all['stim'].shift(periods=1, fill_value=0)
-    inpt_data_all['resp_error'] = 2 * inpt_data_all['choice_trans'] - inpt_data_all['stim']
-    inpt_data_all['diff_pchoice_stim'] = 2 * inpt_data_all['pchoice_trans'] - inpt_data_all['stim']
-    inpt_data_all['diff_stim'] = inpt_data_all['pstim'] - inpt_data_all['stim']
-    inpt_data_all.to_csv('/home/anh/Documents/om_choice/data/om_choice_data_for_cluster/om_state_info.csv')
 
-    # since min/max freq_trans is -1.5/1.5
-    bin_lst = np.arange(-1.55, 1.6, 0.1)
-    bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
-    # get binned freqs for psychometrics for simulated data
-    inpt_data_all["binned_freq"] = pd.cut(inpt_data_all['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
-                                          include_lowest=True)
     inpt_stack = inpt_data_all.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
         'choice').reset_index()
     inpt_stack[0] = inpt_stack[0].fillna(0)
