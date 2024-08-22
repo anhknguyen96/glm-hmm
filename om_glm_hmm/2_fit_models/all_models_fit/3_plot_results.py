@@ -20,7 +20,7 @@ from ssm.util import find_permutation
 # individual glmhmm are initialized by permuted global glmhmm weights, so there needs not be permutation params for plotting
 # if matching between indiv and global glmhmm weights is desired, permutation needs to be passed when calling global glmhmm
 K_max = 5
-root_folder_dir = '/home/anh/Documents/phd'
+root_folder_dir = '/home/anh/Documents'
 root_folder_name = 'om_choice'
 root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
 root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
@@ -979,7 +979,7 @@ if exploratory_plot:
         inpt_data['mouse_id'] = np.ones(len(inpt_data)) * int(float(animal))
         # transform choice (one-hot encoding) to convenient encoding to create success colum
         inpt_data['choice_trans'] = inpt_data['choice'].map({1: 1, 0: -1})
-        inpt_data['success'] = np.zeros(len(inpt_data))
+        # inpt_data['success'] = np.zeros(len(inpt_data))
         # this assignment will fail if stim == 0
         # inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
         inpt_data['success'] = np.asarray(raw_df['success'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
@@ -989,30 +989,68 @@ if exploratory_plot:
                                               include_lowest=True)
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
 
-    inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
+    # inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
 
     # data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
     # fig, ax = plt.subplots(2,1,figsize=(6, 10))
-    # sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax[0],linestyles='--',legend=0);
+    # sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax[0],lw=0.5,linestyles='--',legend=0);
     # sns.pointplot(data=data_stack.loc[(data_stack.pfail==0)],x='state',y=1,ax=ax[0], color='k',legend=0);ax[0].legend([],[], frameon=False)
+    # ax[0].set_title('pfail accuracy'); ax[0].set_xlabel(''); ax[0].set_ylabel('accuracy',fontsize=10)
     #
     # diff_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
-    # # fig, ax = plt.subplots(figsize=(5, 6))
-    # sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax[1],linestyles='--',legend=0);
-    # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax[1], color='k',legend=0);ax[1].legend([],[], frameon=False);plt.show()
+    # sns.pointplot(data=diff_stack_all.loc[(diff_stack_all.pfail == 1)], x='state', y=1, hue='mouse_id',ax=ax[1],lw=0.5,linestyles='--',legend=0);
+    # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, ax=ax[1], color='k',legend=0);ax[1].legend([],[], frameon=False);
+    # ax[1].set_title(r'$\Delta$ accuracy pfail-psuccess'); ax[1].set_ylabel(r'$\Delta$ accuracy', fontsize=10)
+    # plt.tight_layout(); plt.show();
+    # fig.savefig('plots/all_K' + str(K) + '_pfail_delta_acc.png', format='png', bbox_inches="tight")
+    #
+    # inpt_data_all['choice_congruent'] = (np.array(inpt_data_all['choice_trans']) == np.array(inpt_data_all['pchoice'])).astype('int')
+    # inpt_data_all['pstim'] = inpt_data_all['stim'].shift(periods=1).fillna(0)
+    # inpt_data_all['stim_congruent'] = (
+    #             np.sign(np.array(inpt_data_all['stim'])) == np.sign(np.array(inpt_data_all['pstim']))).astype('int')
+    # inpt_data_all['stim_choice_congruent'] = (
+    #         np.sign(np.array(-inpt_data_all['choice_trans'])) == np.sign(np.array(inpt_data_all['pstim']))).astype('int')
+    #
+    # inpt_stack = inpt_data_all.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
+    #     'choice').reset_index()
+    # inpt_stack[0] = inpt_stack[0].fillna(0)
+    # inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
+    #
+    # cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
+    # g = sns.FacetGrid(inpt_stack,col='state', hue='pfail',hue_order=[0,1],height=3.5, aspect=.95)
+    # g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend(labels=['psuccess', 'pfail']); plt.ylabel('P(choose high)')
     # plt.show()
 
+    # correct/incorrect matrix for the last and first 10 trials of a state
+    inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
+    inpt_data_all.loc[inpt_data_all['state_change']!=0, 'state_change'] = 1
+    index_data = inpt_data_all.index
 
-    inpt_stack = inpt_data_all.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
-        'choice').reset_index()
-    inpt_stack[0] = inpt_stack[0].fillna(0)
-    inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
+    n_trials = 10
+    state_start_lst = []
+    state_end_lst = []
+    for state_num in range(K):
+        index_state_change = index_data[(inpt_data_all.state_change == 1)&
+                                        (inpt_data_all.state == state_num)]
+        state_start_array = np.zeros(n_trials)
+        state_end_array = np.zeros(n_trials)
+        for i in range(len(index_state_change)):
+            state_start_array = np.vstack(
+                [state_start_array, inpt_data_all['choice'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+            if index_state_change[i] == 0:
+                continue
+            state_end_array = np.vstack(
+                [state_end_array, inpt_data_all['choice'].iloc[index_state_change[i]-n_trials:index_state_change[i]]])
+        state_start_lst.append(state_start_array[1:,:])
+        state_end_lst.append(state_end_array[1:,:])
 
-    cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
-    g = sns.FacetGrid(inpt_stack, row='choice_congruent',col='state', hue='pfail',height=3.5, aspect=.95)
-    g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend();plt.show()
-    # g.set(ylim=(0.5, 1), xticklabels=['pL-S+', 'pL+S+'])
-
+    fig,ax = plt.subplots(figsize=(6,5))
+    for state_num in range(K):
+        ax.plot(np.mean(state_start_lst[state_num],axis=0),color=cols[state_num],label='state '+str(state_num))
+        ax.plot(np.mean(state_end_lst[state_num], axis=0), color=cols[state_num], linestyle='--')
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles, labels)
+    plt.show()
 # TODO:
 # figure out state transition dynamics
 # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
