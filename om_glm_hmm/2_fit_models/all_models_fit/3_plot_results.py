@@ -1026,31 +1026,128 @@ if exploratory_plot:
     inpt_data_all.loc[inpt_data_all['state_change']!=0, 'state_change'] = 1
     index_data = inpt_data_all.index
 
-    n_trials = 10
-    state_start_lst = []
-    state_end_lst = []
-    for state_num in range(K):
-        index_state_change = index_data[(inpt_data_all.state_change == 1)&
-                                        (inpt_data_all.state == state_num)]
-        state_start_array = np.zeros(n_trials)
-        state_end_array = np.zeros(n_trials)
-        for i in range(len(index_state_change)):
-            state_start_array = np.vstack(
-                [state_start_array, inpt_data_all['choice'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
-            if index_state_change[i] == 0:
-                continue
-            state_end_array = np.vstack(
-                [state_end_array, inpt_data_all['choice'].iloc[index_state_change[i]-n_trials:index_state_change[i]]])
-        state_start_lst.append(state_start_array[1:,:])
-        state_end_lst.append(state_end_array[1:,:])
+    n_trials = 15
 
-    fig,ax = plt.subplots(figsize=(6,5))
-    for state_num in range(K):
-        ax.plot(np.mean(state_start_lst[state_num],axis=0),color=cols[state_num],label='state '+str(state_num))
-        ax.plot(np.mean(state_end_lst[state_num], axis=0), color=cols[state_num], linestyle='--')
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles, labels)
+    # other states transitioning to 1 state
+    for set_K in [3]:
+        state_success_lst = []
+        state_choice_lst = []
+        # get index of state change of only one state
+        index_state_change_all = index_data[(inpt_data_all.state_change == 1) &
+                                        (inpt_data_all.state == set_K)][1:]
+        # get index of the state before the state change
+        index_state_end = index_state_change_all - 1
+        # get state identity before state change
+        state_before = inpt_data_all['state'].iloc[index_state_end]
+        # loop over states before state change
+        for k_num in range(K):
+            # because theres no state change if state before match current state, set dummy array for plotting
+            if k_num == set_K:
+                state_success_lst.append(np.zeros(n_trials*2))
+                state_choice_lst.append(np.zeros(n_trials*2))
+                continue
+            # get index of where state before match k_num
+            index_state_change_tmp = np.where(state_before==k_num)
+            # get real index from the original dataframe
+            index_state_change = index_state_change_all[index_state_change_tmp]
+            # initialize arrays
+            state_start_array_success = np.zeros(n_trials)
+            state_end_array_success = np.zeros(n_trials)
+            state_start_array_choice = np.zeros(n_trials)
+            state_end_array_choice = np.zeros(n_trials)
+            # loop through each state change index to get n_trials before and after
+            for i in range(len(index_state_change)):
+                # start and end of the state change with success
+                state_start_array_success = np.vstack(
+                                [state_start_array_success, inpt_data_all['success'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+                state_end_array_success = np.vstack(
+                    [state_end_array_success, inpt_data_all['success'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
+                # start and end of the state change with choice
+                state_start_array_choice = np.vstack(
+                    [state_start_array_choice,
+                     inpt_data_all['choice'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+                state_end_array_choice = np.vstack(
+                    [state_end_array_choice,
+                     inpt_data_all['choice'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
+            # list of states
+            state_success_lst.append(np.hstack([state_end_array_success[1:, :],state_start_array_success[1:,:]]))
+            state_choice_lst.append(np.hstack([state_end_array_choice[1:, :],state_start_array_choice[1:,:]]))
+        # plot
+        fig,ax = plt.subplots(figsize=(6,5))
+        for state_num in range(K):
+            ax.plot(np.mean(state_success_lst[state_num],axis=0),color=cols[state_num], lw=0.8,label='state '+str(state_num))
+            ax.plot(np.mean(state_choice_lst[state_num], axis=0), color=cols[state_num], lw=0.8, linestyle='--')
+        ax.axvline(x=n_trials,linestyle='--',lw=.5,color='k'); ax.set_ylim(0,1)
+        ax.axhline(y=0.5, linestyle='--', lw=.5, color='k')
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels)
+        plt.title('other states to set K ' +str(set_K))
+        fig.savefig('plots/others_to_K_' + str(set_K) + '.png', format='png', bbox_inches="tight")
+
+    ####################### 1 state transitioning to other states
+    # list of index from dataframe that signify state change
+    index_state_change_all = index_data[(inpt_data_all.state_change == 1)][1:]
+    # list of index from dataframe that signify state before state change (state end)
+    index_state_end_all = index_state_change_all - 1
+    # state identity of state before based on index
+    state_before = inpt_data_all['state'].iloc[index_state_end_all]
+
+    for set_K in range(K):
+        state_success_lst = []
+        state_choice_lst = []
+        # list of index in the state before identity list that signify only 1 state
+        index_state_end_tmp = np.where(state_before == set_K)
+        # get the index of the state changes that have the same 1 state before
+        index_state_change_tmp = index_state_change_all[index_state_end_tmp]
+        # loop over different state after
+        for k_num in range(K):
+            if k_num == set_K:
+                state_success_lst.append(np.zeros(n_trials*2))
+                state_choice_lst.append(np.zeros(n_trials*2))
+                continue
+            # get index of state k_num
+            index_state_k = index_data[inpt_data_all.state == k_num]
+            # get index of 1 state at state change
+            index_state_change = list(set(index_state_k).intersection(set(index_state_change_tmp)))
+            # initialize arrays
+            state_start_array_success = np.zeros(n_trials)
+            state_end_array_success = np.zeros(n_trials)
+            state_start_array_choice = np.zeros(n_trials)
+            state_end_array_choice = np.zeros(n_trials)
+            for i in range(len(index_state_change)):
+                # start and end of the state change with success
+                state_start_array_success = np.vstack(
+                    [state_start_array_success,
+                     inpt_data_all['success'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+                state_end_array_success = np.vstack(
+                    [state_end_array_success,
+                     inpt_data_all['success'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
+                # start and end of the state change with choice
+                state_start_array_choice = np.vstack(
+                    [state_start_array_choice,
+                     inpt_data_all['choice'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+                state_end_array_choice = np.vstack(
+                    [state_end_array_choice,
+                     inpt_data_all['choice'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
+            # list of states
+            state_success_lst.append(np.hstack([state_end_array_success[1:, :], state_start_array_success[1:, :]]))
+            state_choice_lst.append(np.hstack([state_end_array_choice[1:, :], state_start_array_choice[1:, :]]))
+        # plot
+        fig, ax = plt.subplots(figsize=(6, 5))
+        for state_num in range(K):
+            ax.plot(np.mean(state_success_lst[state_num], axis=0), color=cols[state_num], lw=0.8,
+                    label='state ' + str(state_num))
+            ax.plot(np.mean(state_choice_lst[state_num], axis=0), color=cols[state_num], lw=0.8, linestyle='--')
+        ax.axvline(x=n_trials, linestyle='--', lw=.5, color='k');
+        ax.set_ylim(0, 1)
+        ax.axhline(y=0.5, linestyle='--', lw=.5, color='k')
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels)
+        plt.title('set K ' + str(set_K) + ' to other states')
+        fig.savefig('plots/K_'+str(set_K)+'_to_others.png', format='png', bbox_inches="tight")
     plt.show()
+
+    print('DONE')
 # TODO:
 # figure out state transition dynamics
 # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
