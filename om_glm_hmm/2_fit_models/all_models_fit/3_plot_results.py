@@ -984,12 +984,28 @@ if exploratory_plot:
         # inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
         inpt_data['success'] = np.asarray(raw_df['success'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
         inpt_data['RT'] = np.asarray(raw_df['RT'].loc[raw_df['mouse_id'] == float(animal)])
+        inpt_data['session_identifier'] = np.asarray(
+            raw_df['session_identifier'].loc[raw_df['mouse_id'] == float(animal)])
+        inpt_data['pstim'] = np.asarray(
+            raw_df['prev_freq_trans'].loc[raw_df['mouse_id'] == float(animal)])
         # get binned freqs for psychometrics
         inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
                                               include_lowest=True)
+
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
 
-    # inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
+    inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
+
+    inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
+    inpt_data_all.loc[inpt_data_all['state_change'] != 0, 'state_change'] = 1
+    index_data = inpt_data_all.index
+    index_state_change_all = index_data[(inpt_data_all.state_change == 1)][1:]
+    index_scrap = []
+    n_scrap = 5
+    for i in index_state_change_all:
+        index_scrap.extend(np.arange(i-n_scrap,i+n_scrap))
+    inpt_data_try = inpt_data_all.drop(index_scrap, axis=0).reset_index()
+
 
     # data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
     # fig, ax = plt.subplots(2,1,figsize=(6, 10))
@@ -1010,26 +1026,22 @@ if exploratory_plot:
     #             np.sign(np.array(inpt_data_all['stim'])) == np.sign(np.array(inpt_data_all['pstim']))).astype('int')
     # inpt_data_all['stim_choice_congruent'] = (
     #         np.sign(np.array(-inpt_data_all['choice_trans'])) == np.sign(np.array(inpt_data_all['pstim']))).astype('int')
-    #
-    # inpt_stack = inpt_data_all.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
-    #     'choice').reset_index()
-    # inpt_stack[0] = inpt_stack[0].fillna(0)
-    # inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
-    #
-    # cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
-    # g = sns.FacetGrid(inpt_stack,col='state', hue='pfail',hue_order=[0,1],height=3.5, aspect=.95)
-    # g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend(labels=['psuccess', 'pfail']); plt.ylabel('P(choose high)')
-    # plt.show()
+
+    inpt_stack = inpt_data_try.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
+        'choice').reset_index()
+    inpt_stack[0] = inpt_stack[0].fillna(0)
+    inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
+
+    cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
+    g = sns.FacetGrid(inpt_stack,col='state', hue='pfail',hue_order=[0,1],height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend(labels=['psuccess', 'pfail']); plt.ylabel('P(choose high)')
+    plt.show()
 
     # correct/incorrect matrix for the last and first 10 trials of a state
-    inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
-    inpt_data_all.loc[inpt_data_all['state_change']!=0, 'state_change'] = 1
-    index_data = inpt_data_all.index
-
-    n_trials = 15
+    #  n_trials = 15
 
     # other states transitioning to 1 state
-    for set_K in [3]:
+    for set_K in range(K):
         state_success_lst = []
         state_choice_lst = []
         # get index of state change of only one state
@@ -1039,6 +1051,8 @@ if exploratory_plot:
         index_state_end = index_state_change_all - 1
         # get state identity before state change
         state_before = inpt_data_all['state'].iloc[index_state_end]
+        # plt.hist(state_before);
+        # plt.show()
         # loop over states before state change
         for k_num in range(K):
             # because theres no state change if state before match current state, set dummy array for plotting
@@ -1099,6 +1113,8 @@ if exploratory_plot:
         index_state_end_tmp = np.where(state_before == set_K)
         # get the index of the state changes that have the same 1 state before
         index_state_change_tmp = index_state_change_all[index_state_end_tmp]
+        # plt.hist(inpt_data_all['state'].iloc[index_state_change_tmp]);
+        # plt.show()
         # loop over different state after
         for k_num in range(K):
             if k_num == set_K:
