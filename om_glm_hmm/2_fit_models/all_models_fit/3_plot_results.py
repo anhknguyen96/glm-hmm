@@ -52,9 +52,9 @@ glm_fit_check = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
 # flag for one animal
-one_animal = 0
+one_animal = 1
 
-exploratory_plot = 1
+exploratory_plot = 0
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
 if pred_acc_plot:
@@ -819,6 +819,40 @@ if one_animal:
                                                  hmm_params, K, range(K))
         states_max_posterior = np.argmax(posterior_probs, axis=1)
 
+        plot_sess_lst = []
+        session_length = 150
+        for plot_sess in range(len(all_sessions)):
+            if len(inputs[plot_sess]) >= session_length:
+                plot_sess_lst.append(plot_sess)
+        sess_to_plot = all_sessions[plot_sess_lst]
+        posterior_probs_array = np.zeros((session_length,K))
+
+        for i, sess in enumerate(sess_to_plot):
+            # get session index from session array
+            idx_session = np.where(session == sess)
+            # get posterior probs according to session index
+            posterior_probs_this_session = posterior_probs[idx_session[0], :]
+            # Plot trial structure for this session too:
+            posterior_probs_array = np.dstack([posterior_probs_array, posterior_probs_this_session[:session_length]])
+        fig, ax = plt.subplots(figsize=(10, 6))
+        for k in range(K):
+            tmp_state = posterior_probs_array[:,k, 1:]
+            y_err = tmp_state.std() * np.sqrt(1 / len(tmp_state) +
+                                      (tmp_state - tmp_state.mean()) ** 2 / np.sum((tmp_state - tmp_state.mean()) ** 2))
+
+            ax.plot(np.arange(session_length), np.mean(posterior_probs_array[:,k, 1:],axis=1), label="State " + str(k + 1), lw=1, color=cols[k])
+            ax.fill_between(np.arange(session_length),
+                            np.mean(posterior_probs_array[:,k, 1:],axis=1) - y_err,
+                            np.mean(posterior_probs_array[:,k, 1:],axis=1) + y_err,alpha=0.2,color=cols[k])
+        plt.ylim((-0.01, 1.01))
+        plt.xlabel("trial #", fontsize=10)
+        plt.ylabel("p(state)", fontsize=10)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles, labels, loc='lower right')
+        fig.suptitle('State change dynamics ' + animal)
+        plt.show()
+
+
         sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
                         all_sessions[9],all_sessions[10],all_sessions[11],all_sessions[12],
                         all_sessions[14],all_sessions[15],all_sessions[16],all_sessions[17],
@@ -826,14 +860,7 @@ if one_animal:
                        all_sessions[29],all_sessions[30],all_sessions[31],all_sessions[32]]
         plt_row_ind = [1,2,3,4,5]
         plt_sess_ind = [4,8,12,16,20]
-
         fig,ax = plt.subplots(5,4,figsize=(10, 12),sharey='row')
-        # plt.subplots_adjust(wspace=0.2, hspace=0.9)
-        # for i, sess in enumerate(sess_to_plot):
-        #     # plt.subplot(2, K, i+1)
-        #     ax[0,i].plot(labels_for_plot, np.squeeze(weight_vectors[i, :, :]))
-        #     ax[0,i].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
-        #     ax[0,i].axhline(0, linewidth=0.5, linestyle='--')
 
         plt_row_index = 0
         time_plot = 0
@@ -999,13 +1026,6 @@ if exploratory_plot:
     inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
     inpt_data_all.loc[inpt_data_all['state_change'] != 0, 'state_change'] = 1
     index_data = inpt_data_all.index
-    index_state_change_all = index_data[(inpt_data_all.state_change == 1)][1:]
-    index_scrap = []
-    n_scrap = 5
-    for i in index_state_change_all:
-        index_scrap.extend(np.arange(i-n_scrap,i+n_scrap))
-    inpt_data_try = inpt_data_all.drop(index_scrap, axis=0).reset_index()
-
 
     # data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
     # fig, ax = plt.subplots(2,1,figsize=(6, 10))
@@ -1027,41 +1047,51 @@ if exploratory_plot:
     # inpt_data_all['stim_choice_congruent'] = (
     #         np.sign(np.array(-inpt_data_all['choice_trans'])) == np.sign(np.array(inpt_data_all['pstim']))).astype('int')
 
-    inpt_stack = inpt_data_try.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
-        'choice').reset_index()
-    inpt_stack[0] = inpt_stack[0].fillna(0)
-    inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
-
-    cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
-    g = sns.FacetGrid(inpt_stack,col='state', hue='pfail',hue_order=[0,1],height=3.5, aspect=.95)
-    g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend(labels=['psuccess', 'pfail']); plt.ylabel('P(choose high)')
-    plt.show()
+    # inpt_stack = inpt_data_try.groupby(['binned_freq', 'state', 'pfail','mouse_id'])['choice'].value_counts(normalize=True).unstack(
+    #     'choice').reset_index()
+    # inpt_stack[0] = inpt_stack[0].fillna(0)
+    # inpt_stack['binned_freq'] = inpt_stack['binned_freq'].astype('float')
+    #
+    # cmap = sns.cubehelix_palette(rot=-.2, as_cmap=True)
+    # g = sns.FacetGrid(inpt_stack,col='state', hue='pfail',hue_order=[0,1],height=3.5, aspect=.95)
+    # g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend(labels=['psuccess', 'pfail']); plt.ylabel('P(choose high)')
+    # plt.show()
 
     # correct/incorrect matrix for the last and first 10 trials of a state
-    n_trials = 15
-
+    n_trials = 6
+    # for matrix plot
+    fig = plt.figure()
+    columns_label = [str(x) for x in np.arange(K)]
+    plotz = K
+    index_state_change_all_big = index_data[inpt_data_all.state_change==1][1:]
+    discard_len_bef = []
+    discard_len_aft = []
+    discard_list = []
     # other states transitioning to 1 state
     for set_K in range(K):
         state_success_lst = []
         state_choice_lst = []
+        mean_state_bef_lst = []
+        mean_state_aft_lst = []
         # get index of state change of only one state
-        index_state_change_all = index_data[(inpt_data_all.state_change == 1) &
-                                        (inpt_data_all.state == set_K)][1:]
+        index_state_change_all = np.array(list(set(index_state_change_all_big).intersection(set(index_data[inpt_data_all.state == set_K]))))
         # get index of the state before the state change
         index_state_end = index_state_change_all - 1
         # get state identity before state change
         state_before = inpt_data_all['state'].iloc[index_state_end]
         # plt.hist(state_before);
         # plt.show()
-        fig,ax = plt.subplots(1,2,figsize=(10,5))
-        ax[1].hist(state_before,color='k',alpha=0.6);
-        ax[1].set_title('counts of states'); ax[1].set_xlabel('state identity')
+        # fig,ax = plt.subplots(1,2,figsize=(10,5))
+        # ax[1].hist(state_before,color='k',alpha=0.6);
+        # ax[1].set_title('counts of states'); ax[1].set_xlabel('state identity')
         # loop over states before state change
         for k_num in range(K):
             # because theres no state change if state before match current state, set dummy array for plotting
             if k_num == set_K:
                 state_success_lst.append(np.zeros(n_trials*2))
                 state_choice_lst.append(np.zeros(n_trials*2))
+                mean_state_bef_lst.append(0)
+                mean_state_aft_lst.append(0)
                 continue
             # get index of where state before match k_num
             index_state_change_tmp = np.where(state_before==k_num)
@@ -1072,8 +1102,36 @@ if exploratory_plot:
             state_end_array_success = np.zeros(n_trials)
             state_start_array_choice = np.zeros(n_trials)
             state_end_array_choice = np.zeros(n_trials)
+            mean_state_bef = []
+            mean_state_aft = []
             # loop through each state change index to get n_trials before and after
             for i in range(len(index_state_change)):
+                # get state change index that matches with the big list
+                ind_tmp_big_list = np.where(index_state_change_all_big == index_state_change[i])[0]
+                if ind_tmp_big_list == 0:
+                    ind_tmp_bef = 1
+                    ind_tmp_aft = index_state_change_all_big[ind_tmp_big_list+1][0]
+                elif ind_tmp_big_list == len(index_state_change_all_big)-1:
+                    ind_tmp_bef = index_state_change_all_big[ind_tmp_big_list-1][0]
+                    ind_tmp_aft = len(inpt_data_all)-1
+                else:
+                    ind_tmp_bef = index_state_change_all_big[ind_tmp_big_list-1][0]
+                    ind_tmp_aft = index_state_change_all_big[ind_tmp_big_list+1][0]
+                # get length state before and after, if lower than n_trials discard
+                len_state_bef = index_state_change[i] - ind_tmp_bef
+                len_state_aft = ind_tmp_aft - index_state_change[i]
+                if len_state_bef < n_trials or len_state_aft < n_trials:
+                    if len_state_bef < n_trials:
+                        discard_len_bef.append(len_state_bef)
+                        discard_list.append(index_state_change[i]-1)
+                    else:
+                        discard_len_aft.append(len_state_aft)
+                        discard_list.append(index_state_change[i])
+                    continue
+                mean_state_bef.append(np.mean(inpt_data_all['success'].iloc[ind_tmp_bef:index_state_change[i]]))
+                mean_state_aft.append(np.mean(inpt_data_all['success'].iloc[index_state_change[i]:ind_tmp_aft]))
+
+                # state end mean and length
                 # start and end of the state change with success
                 state_start_array_success = np.vstack(
                                 [state_start_array_success, inpt_data_all['success'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
@@ -1089,91 +1147,56 @@ if exploratory_plot:
             # list of states
             state_success_lst.append(np.hstack([state_end_array_success[1:, :],state_start_array_success[1:,:]]))
             state_choice_lst.append(np.hstack([state_end_array_choice[1:, :],state_start_array_choice[1:,:]]))
+            mean_state_bef_lst.append(np.mean(np.array(mean_state_bef)))
+            mean_state_aft_lst.append(np.mean(np.array(mean_state_aft)))
         # plot
         # fig,ax = plt.subplots(figsize=(6,5))
-        for state_num in range(K):
-            ax[0].plot(np.mean(state_success_lst[state_num],axis=0),color=cols[state_num], lw=0.8,label='state '+str(state_num))
-            ax[0].plot(np.mean(state_choice_lst[state_num], axis=0), color=cols[state_num], lw=0.6, linestyle='--')
-        ax[0].axvline(x=n_trials,linestyle='--',lw=.5,color='k'); ax[0].set_ylim(0,1)
-        ax[0].axhline(y=0.5, linestyle='--', lw=.5, color='k')
-        handles, labels = ax[0].get_legend_handles_labels()
-        ax[0].legend(handles, labels)
-        ax[0].set_ylabel('P(correct) | P(choose-low) (dashed lines)'); ax[0].set_xlabel('trials')
-        ax[0].set_title('transitioning dynamics')
-        fig.suptitle('other states to state '+str(set_K))
-        fig.savefig('plots/others_to_K_' + str(set_K) + '.png', format='png', bbox_inches="tight")
+        # for state_num in range(K):
+        #     ax[0].plot(np.mean(state_success_lst[state_num],axis=0),color=cols[state_num], lw=0.8,label='state '+str(state_num))
+        #     ax[0].plot(np.mean(state_choice_lst[state_num], axis=0), color=cols[state_num], lw=0.6, linestyle='--')
+        # ax[0].axvline(x=n_trials,linestyle='--',lw=.5,color='k'); ax[0].set_ylim(0,1)
+        # ax[0].axhline(y=0.5, linestyle='--', lw=.5, color='k')
+        # handles, labels = ax[0].get_legend_handles_labels()
+        # ax[0].legend(handles, labels)
+        # ax[0].set_ylabel('P(correct) | P(choose-low) (dashed lines)'); ax[0].set_xlabel('trials')
+        # ax[0].set_title('transitioning dynamics')
+        # fig.suptitle('other states to state '+str(set_K))
+        # fig.savefig('plots/others_to_K_' + str(set_K) + '.png', format='png', bbox_inches="tight")
 
 
-    ####################### 1 state transitioning to other states
-    # list of index from dataframe that signify state change
-    index_state_change_all = index_data[(inpt_data_all.state_change == 1)][1:]
-    # list of index from dataframe that signify state before state change (state end)
-    index_state_end_all = index_state_change_all - 1
-    # state identity of state before based on index
-    state_before = inpt_data_all['state'].iloc[index_state_end_all]
+        for i in range(plotz):
+            if i==set_K:
+                # initialize ax
+                ax = plt.subplot2grid((plotz, plotz), (i, set_K),fig=fig)
+                # set color for this subgrid
+                ax.set_facecolor("#580F41")
+                ax.yaxis.set_ticklabels([])
+                # ax.xaxis.set_ticklabels([])
+                if i == plotz-1:
+                    ax.set_xlabel('to '+ columns_label[set_K])
+                if set_K == 0:
+                    ax.set_ylabel('from ' +columns_label[set_K],rotation=0,ha='right')
+                # Show all ticks and label them with the respective list entries
 
-    for set_K in range(K):
-        state_success_lst = []
-        state_choice_lst = []
-        # list of index in the state before identity list that signify only 1 state
-        index_state_end_tmp = np.where(state_before == set_K)
-        # get the index of the state changes that have the same 1 state before
-        index_state_change_tmp = index_state_change_all[index_state_end_tmp]
-        # plt.hist(inpt_data_all['state'].iloc[index_state_change_tmp]);
-        # plt.show()
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-        ax[1].hist(inpt_data_all['state'].iloc[index_state_change_tmp], color='k', alpha=0.6);
-        ax[1].set_title('counts of states'); ax[1].set_xlabel('state identity')
-        # loop over different state after
-        for k_num in range(K):
-            if k_num == set_K:
-                state_success_lst.append(np.zeros(n_trials*2))
-                state_choice_lst.append(np.zeros(n_trials*2))
-                continue
-            # get index of state k_num
-            index_state_k = index_data[inpt_data_all.state == k_num]
-            # get index of 1 state at state change
-            index_state_change = list(set(index_state_k).intersection(set(index_state_change_tmp)))
-            # initialize arrays
-            state_start_array_success = np.zeros(n_trials)
-            state_end_array_success = np.zeros(n_trials)
-            state_start_array_choice = np.zeros(n_trials)
-            state_end_array_choice = np.zeros(n_trials)
-            for i in range(len(index_state_change)):
-                # start and end of the state change with success
-                state_start_array_success = np.vstack(
-                    [state_start_array_success,
-                     inpt_data_all['success'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
-                state_end_array_success = np.vstack(
-                    [state_end_array_success,
-                     inpt_data_all['success'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
-                # start and end of the state change with choice
-                state_start_array_choice = np.vstack(
-                    [state_start_array_choice,
-                     inpt_data_all['choice'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
-                state_end_array_choice = np.vstack(
-                    [state_end_array_choice,
-                     inpt_data_all['choice'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
-            # list of states
-            state_success_lst.append(np.hstack([state_end_array_success[1:, :], state_start_array_success[1:, :]]))
-            state_choice_lst.append(np.hstack([state_end_array_choice[1:, :], state_start_array_choice[1:, :]]))
-        # plot
-        for state_num in range(K):
-            ax[0].plot(np.mean(state_success_lst[state_num], axis=0), color=cols[state_num], lw=0.8,
-                    label='state ' + str(state_num))
-            ax[0].plot(np.mean(state_choice_lst[state_num], axis=0), color=cols[state_num], lw=0.6, linestyle='--')
-        ax[0].axvline(x=n_trials, linestyle='--', lw=.5, color='k');
-        handles, labels = ax[0].get_legend_handles_labels()
-        ax[0].legend(handles, labels)
-        ax[0].set_ylim(0, 1); ax[0].axhline(y=0.5, linestyle='--', lw=.5, color='k')
-        ax[0].set_ylabel('P(correct) | P(choose-low) (dashed lines)');
-        ax[0].set_xlabel('trials')
-        ax[0].set_title('transitioning dynamics')
-        fig.suptitle('state ' + str(set_K) + ' to other states')
-        fig.savefig('plots/K_'+str(set_K)+'_to_others.png', format='png', bbox_inches="tight")
+            else:
+                print(i,set_K)
+                ax = plt.subplot2grid((plotz, plotz), (i,set_K),fig=fig)
+                ax.yaxis.set_ticklabels([])
+                ax.plot(np.mean(state_success_lst[i], axis=0), color=cols[i], lw=0.8)
+                ax.plot(np.mean(state_choice_lst[i], axis=0), color=cols[i], lw=0.6, linestyle='--')
+                ax.axhline(y=mean_state_bef_lst[i], xmin=0, xmax=0.4, linestyle='--', lw=.5, color=cols[i])
+                ax.axhline(y=mean_state_aft_lst[i], xmin=0.6, xmax=1, linestyle='--', lw=.5, color=cols[set_K])
+                ax.axvline(x=n_trials, linestyle='--', lw=.5, color='k');
+                ax.axhline(y=0.5, linestyle='--', lw=.5, color='k')
+                if i == plotz-1:
+                    ax.set_xlabel('to ' + columns_label[set_K])
+                if set_K == 0:
+                    ax.set_ylabel('from ' + columns_label[i],rotation=0,ha='right')
+            ax.set_ylim([0, 1])
+            # ax.set_xlim([0, n_trials*2])
+
     plt.show()
 
-    print('DONE')
 # TODO:
 # figure out state transition dynamics
 # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
