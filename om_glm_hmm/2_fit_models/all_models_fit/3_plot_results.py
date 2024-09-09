@@ -6,6 +6,7 @@ import sys
 import pandas as pd
 sys.path.append('.')
 import matplotlib.pyplot as plt
+from scipy.stats import sem
 import seaborn as sns
 from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     get_file_name_for_best_model_fold, partition_data_by_session, \
@@ -52,9 +53,9 @@ glm_fit_check = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
 # flag for one animal
-one_animal = 1
+one_animal = 0
 
-exploratory_plot = 0
+exploratory_plot = 1
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
 if pred_acc_plot:
@@ -786,9 +787,11 @@ if individual_animals:
 ##############################################################################################
 ##################### PLOT POSTERIOR PROBS (ANIMAL SPECIFIC) #################################
 if one_animal:
-    animal_lst = [17.0, 27.0, 12.0]
-    animal_lst = [str(x) for x in animal_lst]
+    # animal_lst = [17.0, 27.0, 12.0]
+    animal_lst = [str(x) for x in animal_list]
     K = 4
+    session_length = 150
+    session_max = 200
     for animal in animal_list:
 
         results_dir_individual_animal = results_dir_individual / animal
@@ -818,91 +821,90 @@ if one_animal:
         posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
                                                  hmm_params, K, range(K))
         states_max_posterior = np.argmax(posterior_probs, axis=1)
-
-        plot_sess_lst = []
-        session_length = 150
-        for plot_sess in range(len(all_sessions)):
-            if len(inputs[plot_sess]) >= session_length:
-                plot_sess_lst.append(plot_sess)
-        sess_to_plot = all_sessions[plot_sess_lst]
         posterior_probs_array = np.zeros((session_length,K))
 
-        for i, sess in enumerate(sess_to_plot):
+        for i, sess in enumerate(all_sessions):
             # get session index from session array
             idx_session = np.where(session == sess)
             # get posterior probs according to session index
             posterior_probs_this_session = posterior_probs[idx_session[0], :]
-            # Plot trial structure for this session too:
-            posterior_probs_array = np.dstack([posterior_probs_array, posterior_probs_this_session[:session_length]])
+            # if session longer than session_max, discard
+            if len(idx_session[0]) > session_max:
+                continue
+            # if session shorter than session_length, discard
+            try:
+                posterior_probs_array = np.dstack([posterior_probs_array, posterior_probs_this_session[:session_length,:]])
+            except:
+                continue
+        posterior_probs_array = posterior_probs_array[:,:,1:]
+
         fig, ax = plt.subplots(figsize=(10, 6))
         for k in range(K):
-            tmp_state = posterior_probs_array[:,k, 1:]
-            y_err = tmp_state.std() * np.sqrt(1 / len(tmp_state) +
-                                      (tmp_state - tmp_state.mean()) ** 2 / np.sum((tmp_state - tmp_state.mean()) ** 2))
-
-            ax.plot(np.arange(session_length), np.mean(posterior_probs_array[:,k, 1:],axis=1), label="State " + str(k + 1), lw=1, color=cols[k])
+            tmp_state = posterior_probs_array[:,k, :]
+            sem_tmp = sem(tmp_state, axis=1)
+            ax.plot(np.arange(session_length), np.mean(tmp_state,axis=1), label="State " + str(k + 1), lw=1, color=cols[k])
             ax.fill_between(np.arange(session_length),
-                            np.mean(posterior_probs_array[:,k, 1:],axis=1) - y_err,
-                            np.mean(posterior_probs_array[:,k, 1:],axis=1) + y_err,alpha=0.2,color=cols[k])
+                            np.mean(tmp_state,axis=1) - sem_tmp,
+                            np.mean(tmp_state,axis=1) + sem_tmp,alpha=0.2,color=cols[k])
         plt.ylim((-0.01, 1.01))
         plt.xlabel("trial #", fontsize=10)
         plt.ylabel("p(state)", fontsize=10)
         handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles, labels, loc='lower right')
-        fig.suptitle('State change dynamics ' + animal)
-        plt.show()
+        ax.legend(handles, labels, loc='lower right'); sns.despine(fig,top=True,right=True)
+        fig.suptitle('State change dynamics ' + animal); plt.tight_layout()
+        fig.savefig('plots/' + animal + '_state_changedynamics_K' + str(K) + 'averagedsess.png', format='png', bbox_inches="tight")
 
-
-        sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
-                        all_sessions[9],all_sessions[10],all_sessions[11],all_sessions[12],
-                        all_sessions[14],all_sessions[15],all_sessions[16],all_sessions[17],
-                       all_sessions[24],all_sessions[25],all_sessions[26],all_sessions[27],
-                       all_sessions[29],all_sessions[30],all_sessions[31],all_sessions[32]]
-        plt_row_ind = [1,2,3,4,5]
-        plt_sess_ind = [4,8,12,16,20]
-        fig,ax = plt.subplots(5,4,figsize=(10, 12),sharey='row')
-
-        plt_row_index = 0
-        time_plot = 0
-        for i, sess in enumerate(sess_to_plot):
-            time_plot += 1
-            if time_plot == 4:
-                time_plot = 0
-            if i in plt_sess_ind:
-                plt_row_index += 1
-            # get session index from session array
-            idx_session = np.where(session == sess)
-            # get input according to the session index
-            this_inpt = inpt[idx_session[0], :]
-            # get posterior probs according to session index
-            posterior_probs_this_session = posterior_probs[idx_session[0], :]
-            # Plot trial structure for this session too:
-            for k in range(K):
-                ax[plt_row_index,time_plot-1].plot(posterior_probs_this_session[:, k],
-                         label="State " + str(k + 1), lw=1,
-                         color=cols[k])
-            # get max probs of state of each trial
-            states_this_sess = states_max_posterior[idx_session[0]]
-            # get state change index
-            state_change_locs = np.where(np.abs(np.diff(states_this_sess)) > 0)[0]
-            # plot state change
-            for change_loc in state_change_locs:
-                ax[plt_row_index,time_plot-1].axvline(x=change_loc, color='k', lw=0.5, linestyle='--')
-            plt.ylim((-0.01, 1.01))
-            plt.title("example session " + str(i + 1), fontsize=10)
-            plt.gca().spines['right'].set_visible(False)
-            plt.gca().spines['top'].set_visible(False)
-            if i == 0:
-                plt.xlabel("trial #", fontsize=10)
-                plt.ylabel("p(state)", fontsize=10)
-            if i == len(sess_to_plot)-1:
-                handles, labels = ax[plt_row_index, time_plot-1].get_legend_handles_labels()
-                ax[plt_row_index, time_plot-1].legend(handles, labels, loc='lower right')
-            ax[plt_row_index, time_plot - 1].set_title(str(sess))
-        fig.suptitle('State change dynamics '+animal)
-        fig.subplots_adjust(top=0.92, hspace=0.4);
-        fig.savefig('plots/'+animal+'_state_changedynamics_K' + str(K) + '.png', format='png', bbox_inches="tight")
-        plt.show()
+        #
+        # sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
+        #                 all_sessions[9],all_sessions[10],all_sessions[11],all_sessions[12],
+        #                 all_sessions[14],all_sessions[15],all_sessions[16],all_sessions[17],
+        #                all_sessions[24],all_sessions[25],all_sessions[26],all_sessions[27],
+        #                all_sessions[29],all_sessions[30],all_sessions[31],all_sessions[32]]
+        # plt_row_ind = [1,2,3,4,5]
+        # plt_sess_ind = [4,8,12,16,20]
+        # fig,ax = plt.subplots(5,4,figsize=(10, 12),sharey='row')
+        #
+        # plt_row_index = 0
+        # time_plot = 0
+        # for i, sess in enumerate(sess_to_plot):
+        #     time_plot += 1
+        #     if time_plot == 4:
+        #         time_plot = 0
+        #     if i in plt_sess_ind:
+        #         plt_row_index += 1
+        #     # get session index from session array
+        #     idx_session = np.where(session == sess)
+        #     # get input according to the session index
+        #     this_inpt = inpt[idx_session[0], :]
+        #     # get posterior probs according to session index
+        #     posterior_probs_this_session = posterior_probs[idx_session[0], :]
+        #     # Plot trial structure for this session too:
+        #     for k in range(K):
+        #         ax[plt_row_index,time_plot-1].plot(posterior_probs_this_session[:, k],
+        #                  label="State " + str(k + 1), lw=1,
+        #                  color=cols[k])
+        #     # get max probs of state of each trial
+        #     states_this_sess = states_max_posterior[idx_session[0]]
+        #     # get state change index
+        #     state_change_locs = np.where(np.abs(np.diff(states_this_sess)) > 0)[0]
+        #     # plot state change
+        #     for change_loc in state_change_locs:
+        #         ax[plt_row_index,time_plot-1].axvline(x=change_loc, color='k', lw=0.5, linestyle='--')
+        #     plt.ylim((-0.01, 1.01))
+        #     plt.title("example session " + str(i + 1), fontsize=10)
+        #     plt.gca().spines['right'].set_visible(False)
+        #     plt.gca().spines['top'].set_visible(False)
+        #     if i == 0:
+        #         plt.xlabel("trial #", fontsize=10)
+        #         plt.ylabel("p(state)", fontsize=10)
+        #     if i == len(sess_to_plot)-1:
+        #         handles, labels = ax[plt_row_index, time_plot-1].get_legend_handles_labels()
+        #         ax[plt_row_index, time_plot-1].legend(handles, labels, loc='lower right')
+        #     ax[plt_row_index, time_plot - 1].set_title(str(sess))
+        # fig.suptitle('State change dynamics '+animal)
+        # fig.subplots_adjust(top=0.92, hspace=0.4);
+        # fig.savefig('plots/'+animal+'_state_changedynamics_K' + str(K) + '.png', format='png', bbox_inches="tight")
+        # plt.show()
 
 ##############################################################################################
 ##################### EXPLORATORY PLOTS ######################################################
@@ -1058,14 +1060,14 @@ if exploratory_plot:
     # plt.show()
 
     # correct/incorrect matrix for the last and first 10 trials of a state
-    n_trials = 6
+    n_trials = 5
     # for matrix plot
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10,10))
     columns_label = [str(x) for x in np.arange(K)]
     plotz = K
     index_state_change_all_big = index_data[inpt_data_all.state_change==1][1:]
-    discard_len_bef = []
-    discard_len_aft = []
+    discard_len = []
+    discard_len = []
     discard_list = []
     # other states transitioning to 1 state
     for set_K in range(K):
@@ -1122,10 +1124,10 @@ if exploratory_plot:
                 len_state_aft = ind_tmp_aft - index_state_change[i]
                 if len_state_bef < n_trials or len_state_aft < n_trials:
                     if len_state_bef < n_trials:
-                        discard_len_bef.append(len_state_bef)
+                        discard_len.append(len_state_bef)
                         discard_list.append(index_state_change[i]-1)
                     else:
-                        discard_len_aft.append(len_state_aft)
+                        discard_len.append(len_state_aft)
                         discard_list.append(index_state_change[i])
                     continue
                 mean_state_bef.append(np.mean(inpt_data_all['success'].iloc[ind_tmp_bef:index_state_change[i]]))
@@ -1149,21 +1151,6 @@ if exploratory_plot:
             state_choice_lst.append(np.hstack([state_end_array_choice[1:, :],state_start_array_choice[1:,:]]))
             mean_state_bef_lst.append(np.mean(np.array(mean_state_bef)))
             mean_state_aft_lst.append(np.mean(np.array(mean_state_aft)))
-        # plot
-        # fig,ax = plt.subplots(figsize=(6,5))
-        # for state_num in range(K):
-        #     ax[0].plot(np.mean(state_success_lst[state_num],axis=0),color=cols[state_num], lw=0.8,label='state '+str(state_num))
-        #     ax[0].plot(np.mean(state_choice_lst[state_num], axis=0), color=cols[state_num], lw=0.6, linestyle='--')
-        # ax[0].axvline(x=n_trials,linestyle='--',lw=.5,color='k'); ax[0].set_ylim(0,1)
-        # ax[0].axhline(y=0.5, linestyle='--', lw=.5, color='k')
-        # handles, labels = ax[0].get_legend_handles_labels()
-        # ax[0].legend(handles, labels)
-        # ax[0].set_ylabel('P(correct) | P(choose-low) (dashed lines)'); ax[0].set_xlabel('trials')
-        # ax[0].set_title('transitioning dynamics')
-        # fig.suptitle('other states to state '+str(set_K))
-        # fig.savefig('plots/others_to_K_' + str(set_K) + '.png', format='png', bbox_inches="tight")
-
-
         for i in range(plotz):
             if i==set_K:
                 # initialize ax
@@ -1171,7 +1158,7 @@ if exploratory_plot:
                 # set color for this subgrid
                 ax.set_facecolor("#580F41")
                 ax.yaxis.set_ticklabels([])
-                # ax.xaxis.set_ticklabels([])
+                ax.xaxis.set_ticklabels([])
                 if i == plotz-1:
                     ax.set_xlabel('to '+ columns_label[set_K])
                 if set_K == 0:
@@ -1181,21 +1168,41 @@ if exploratory_plot:
             else:
                 print(i,set_K)
                 ax = plt.subplot2grid((plotz, plotz), (i,set_K),fig=fig)
-                ax.yaxis.set_ticklabels([])
-                ax.plot(np.mean(state_success_lst[i], axis=0), color=cols[i], lw=0.8)
-                ax.plot(np.mean(state_choice_lst[i], axis=0), color=cols[i], lw=0.6, linestyle='--')
-                ax.axhline(y=mean_state_bef_lst[i], xmin=0, xmax=0.4, linestyle='--', lw=.5, color=cols[i])
-                ax.axhline(y=mean_state_aft_lst[i], xmin=0.6, xmax=1, linestyle='--', lw=.5, color=cols[set_K])
+                ax.plot(np.mean(state_success_lst[i], axis=0), color=cols[i], lw=1)
+                ax.plot(np.mean(state_choice_lst[i], axis=0), color=cols[i], lw=0.8, linestyle='--')
+                ax.axhline(y=mean_state_bef_lst[i], xmin=0, xmax=0.4, linestyle='--', lw=.6, color=cols[i])
+                ax.axhline(y=mean_state_aft_lst[i], xmin=0.6, xmax=1, linestyle='--', lw=.6, color=cols[set_K])
                 ax.axvline(x=n_trials, linestyle='--', lw=.5, color='k');
                 ax.axhline(y=0.5, linestyle='--', lw=.5, color='k')
                 if i == plotz-1:
                     ax.set_xlabel('to ' + columns_label[set_K])
+                else:
+                    ax.xaxis.set_ticklabels([])
                 if set_K == 0:
                     ax.set_ylabel('from ' + columns_label[i],rotation=0,ha='right')
-            ax.set_ylim([0, 1])
-            # ax.set_xlim([0, n_trials*2])
-
+                else:
+                    ax.yaxis.set_ticklabels([])
+            ax.set_ylim([-0.01, 1.01])
+            ax.set_xlim([-0.1, n_trials*2-.9])
+    # fig.savefig('plots/others_to_all_K_4_matrix.png', format='png', bbox_inches="tight")
     plt.show()
+    # plot discard states and their lengths
+    fig,ax = plt.subplots(1,2,figsize=(10,5))
+    ax[0].hist(discard_len, color='violet', alpha=0.6);
+    ax[1].hist(inpt_data_all['state'].iloc[discard_list],color='k',alpha=0.6)
+    ax[1].set_title('counts of discarded states'); ax[1].set_xlabel('state identity')
+    ax[0].set_title('counts of discarded lengths'); ax[0].set_xlabel('state length')
+    # now, define the ticks (i.e. locations where the labels will be plotted)
+    xticks = [i for i in range(K)]
+    xticks_length = [i+1 for i in range(K)]
+    # also define the labels we'll use (note this MUST have the same size as `xticks`!)
+    xtick_labels = [str(x) for x in range(K)]
+    xtick_labels_length = [str(x) for x in xticks_length]
+    # add the ticks and labels to the plot
+    ax[1].set_xticks(xticks); ax[1].set_xticklabels(xtick_labels); ax[1].set_xlim([-0.1,3.1]);
+    ax[0].set_xticks(xticks_length); ax[0].set_xticklabels(xtick_labels_length); ax[0].set_xlim([0.9, 4.1]);
+    plt.show()
+    print('Done')
 
 # TODO:
 # figure out state transition dynamics
