@@ -25,11 +25,15 @@ root_folder_dir = '/home/anh/Documents'
 root_folder_name = 'om_choice'
 root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
 root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
+root_result_1_dir = Path(root_folder_dir) / root_folder_name / 'result_transitionalpha_1-2'
+root_result_3_dir = Path(root_folder_dir) / root_folder_name / 'result_transitionalpha_3-5'
 
 data_dir = root_data_dir / (root_folder_name +'_data_for_cluster')
 data_individual = data_dir / 'data_by_animal'
 results_dir = root_result_dir / (root_folder_name +'_global_fit')
 results_dir_individual = root_result_dir/ (root_folder_name + '_individual_fit')
+results_dir_1_individual = root_result_1_dir / (root_folder_name + '_individual_fit')
+results_dir_3_individual = root_result_3_dir / (root_folder_name + '_individual_fit')
 animal_list = load_animal_list(data_individual / 'animal_list.npz')
 # list of columns/predictors name as ordered by pansy
 labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
@@ -41,8 +45,8 @@ cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#999999', '#e41a1c', '#dede00'
     ]
 
-trouble_animals =['23.0','24.0','26.0']
-animal_list = list(set(animal_list)-set(trouble_animals))
+# trouble_animals =['23.0','24.0','26.0']
+# animal_list = list(set(animal_list)-set(trouble_animals))
 
 # flag for running all_animals analysis
 all_animals = 0
@@ -52,10 +56,43 @@ individual_animals = 0
 glm_fit_check = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
+pred_acc_plot_multialpha = 0
 # flag for one animal
 one_animal = 0
 
 exploratory_plot = 1
+
+####################################################################################
+##################### K-STATE GLM PRED ACC & NLL ###################################
+if pred_acc_plot_multialpha:
+    K = 5
+    K_plot = 5
+    D, M, C = 1, 3, 2
+
+    plt_xticks_location = np.arange(K_plot)
+    plt_xticks_label =  [str(x) for x in (plt_xticks_location + 1)]
+    idx_cv_arr = [1,2]
+
+    # =========== NLL ====================================
+    # plt.subplot(3, 3, 1)
+    fig, ax = plt.subplots(figsize=(3, 3))
+    across_animals = np.zeros((3,5))
+    for animal in animal_list:
+        results_dir_individual_animal = results_dir_individual / animal
+        cv_arr = load_cv_arr(results_dir_individual_animal / "cvbt_folds_model.npz")
+        cv_arr_1 = load_cv_arr(results_dir_1_individual / animal / "cvbt_folds_model.npz")
+        cv_arr_3 = load_cv_arr(results_dir_3_individual / animal / "cvbt_folds_model.npz")
+        mean_cvbt = np.mean(cv_arr, axis=1)
+        mean_cvbt_1 = np.mean(cv_arr_1, axis=1)
+        mean_cvbt_3 = np.mean(cv_arr_3, axis=1)
+
+        tmp_mean = np.stack((mean_cvbt,mean_cvbt_1,mean_cvbt_3))
+        tmp_mean = tmp_mean - tmp_mean[0,:]
+        ax.plot(tmp_mean[:,1],color='k',lw=1.5)
+        across_animals = np.dstack((across_animals,tmp_mean))
+    across_animals = across_animals[:,:,1:]
+    plt.show()
+
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
 if pred_acc_plot:
@@ -537,8 +574,8 @@ if all_animals:
 ##################### LOAD DATA ######################################################
 if individual_animals:
     animal_lst= [17.0,27.0,12.0]
-    animal_lst = [str(x) for x in animal_lst]
-    for K in [4]:
+    animal_lst = [str(x) for x in animal_list]
+    for K in [3]:
         n_session = n_session_lst[-1]
         n_trials = n_trials_lst[-1]
         for animal in animal_lst:
@@ -787,9 +824,9 @@ if individual_animals:
 ##############################################################################################
 ##################### PLOT POSTERIOR PROBS (ANIMAL SPECIFIC) #################################
 if one_animal:
-    # animal_lst = [17.0, 27.0, 12.0]
-    animal_lst = [str(x) for x in animal_list]
-    K = 4
+    animal_lst = [19.0, 5.0, 1.0]
+    animal_lst = [str(x) for x in animal_lst]
+    K = 3
     session_length = 150
     session_max = 200
     for animal in animal_list:
@@ -1023,12 +1060,18 @@ if exploratory_plot:
     #
     #     inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
     #
-    # inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
+    inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
     inpt_data_all = pd.read_csv(os.path.join(data_dir,'om_state_info.csv'))
     inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
     inpt_data_all.loc[inpt_data_all['state_change'] != 0, 'state_change'] = 1
+    inpt_data_all['state_valid'] = np.ones(len(inpt_data_all))
+    inpt_data_all['state_valid_2'] = np.ones(len(inpt_data_all))
     index_data = inpt_data_all.index
-
+    # these animals are with non-sticky state changes
+    # https://www.biorxiv.org/content/10.1101/2024.02.13.580224v1.full
+    # try to see the nature of rapid state switching before eliminating it
+    # animal_exclude = ['1','5','14','15','16','17','18','19','25']
+    # animal_list = list(set(animal_list) - set(animal_exclude))
     # data_stack_all = inpt_data_all.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').reset_index()
     # fig, ax = plt.subplots(2,1,figsize=(6, 10))
     # sns.pointplot(data=data_stack_all.loc[(data_stack_all.pfail==0)],x='state',y=1,hue='mouse_id',ax=ax[0],lw=0.5,linestyles='--',legend=0);
@@ -1060,7 +1103,7 @@ if exploratory_plot:
     # plt.show()
 
     # correct/incorrect matrix for the last and first 10 trials of a state
-    n_trials = 5
+    n_trials = 3
     # for matrix plot
     fig = plt.figure(figsize=(10,10))
     columns_label = [str(x) for x in np.arange(K)]
@@ -1126,9 +1169,12 @@ if exploratory_plot:
                     if len_state_bef < n_trials:
                         discard_len.append(len_state_bef)
                         discard_list.append(index_state_change[i]-1)
+                        inpt_data_all['state_valid_2'].iloc[index_state_change[i]-len_state_bef:index_state_change[i]] = 0
                     else:
                         discard_len.append(len_state_aft)
                         discard_list.append(index_state_change[i])
+                        inpt_data_all['state_valid_2'].iloc[
+                        index_state_change[i]:index_state_change[i]+len_state_aft] = 0
                     continue
                 mean_state_bef.append(np.mean(inpt_data_all['success'].iloc[ind_tmp_bef:index_state_change[i]]))
                 mean_state_aft.append(np.mean(inpt_data_all['success'].iloc[index_state_change[i]:ind_tmp_aft]))
@@ -1203,6 +1249,100 @@ if exploratory_plot:
     ax[0].set_xticks(xticks_length); ax[0].set_xticklabels(xtick_labels_length); ax[0].set_xlim([0.9, 4.1]);
     plt.show()
     print('Done')
+
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_glmm_choice_pred.csv')
+    index = data.index
+    data['mouse_batch'] = np.zeros(len(data))
+    data['mouse_batch'].loc[data.mouse_id <= 10] = 1
+    data['mouse_batch'] = data['mouse_batch'].astype('str')
+
+    data['mouse_int'] = np.zeros(len(data))
+    data['mouse_int'].loc[data.mouse_id % 2 == 0] = 1
+    data['mouse_id'].loc[data.mouse_int == 1].unique()
+
+    data['spout_side'] = data['sound_index'].copy()
+    data['spout_side'].loc[data['spout_side'] == 0] = 2
+    left_side = index[(data.mouse_id % 2 !=0) & (data.sound_index == 0)]
+    right_side = index[(data.mouse_id % 2 != 0) & (data.sound_index == 1)]
+    data.loc[left_side, 'spout_side'] = 1
+    data.loc[right_side, 'spout_side'] = 2
+
+    left_array = data['spout_side'].where(data['spout_side'] != 2, 0)
+    # array of correct low frequency trials, if sound_index is a high_index, change the accuracy to 0 (1->0 for all animals)
+    left_correct = data['success'].where(data['spout_side'] != 2, 0)
+    # print(low_correct.unique())
+    left_acc = left_correct.rolling(window=5, min_periods=3).mean() / left_array.rolling(
+        window=5, min_periods=3).mean()
+
+    # array of high frequency trials, if sound_index is a low index, change them to 0 (1->0)
+    right_array = data['spout_side'].where(data['spout_side'] != 1, 0)
+    # print(high_array.unique())
+    # 2 labels high freq, but we only want arrays of 1s and 0s, change 2s to 1s
+    right_array = right_array.where(right_array != 2, 1)
+    # array of correct high frequency trials, if sound_index is a low_index, change the accuracy to 0 (1->0 for all animals)
+    right_correct = data['success'].where(data['spout_side'] != 1, 0)
+    # print(high_correct.unique())
+    right_acc = right_correct.rolling(window=5, min_periods=3).mean() / right_array.rolling(
+        window=5, min_periods=3).mean()
+
+    rolling_bias = -(left_acc.fillna(0) - right_acc.fillna(0))
+    bin_lst = np.arange(-1.0, 1.02, 0.2)
+    bin_name = np.round(bin_lst, 2)
+    data['binned_rb'] = pd.cut(data['rolling_bias'], bins=bin_lst, labels=[str(x) for x in bin_name],
+                               include_lowest=True)
+    data['binned_rb'] = data['binned_rb'].shift(periods=2)
+
+    bin_lst = np.arange(-1.55, 1.6, 0.1)
+    bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
+    data["binned_freq"] = pd.cut(data['freq_trans'], bins=bin_lst, labels=[str(x) for x in bin_name],
+                                 include_lowest=True)
+    data['lick_side_trans'] = data['lick_side'].copy()
+    data['lick_side_trans'].loc[data.lick_side==2]=0
+
+    # break down difficulty level of the previous trial
+    data['difficulty_freq'] = np.zeros(len(data))
+    data.loc[(data.prev_freq_trans < 0.3) & (data.prev_freq_trans > -.3), 'difficulty_freq'] = 1
+    # get columns to restack data and plot
+    wanted_cols = ['binned_freq','difficulty_freq','prev_choice', 'prev_failure', 'lick_side_freq']
+    # only get steady state performance
+    psych_data = data.loc[(data['freq_trans'] <= 0.5) & (data['freq_trans'] >= -0.5),wanted_cols].copy()
+    psych_data_melt = pd.melt(psych_data, id_vars=wanted_cols[:-1],
+                              value_vars=wanted_cols[-1:])
+    melt_cols = wanted_cols[:-1]
+    melt_cols.append('variable')
+    inpt_stack = psych_data_melt.groupby(melt_cols)['value'].value_counts(
+        normalize=True).unstack('value').reset_index()
+
+    # repeat with the all data stack
+    wanted_cols_all = ['binned_freq', 'difficulty_freq', 'prev_choice', 'lick_side_freq']
+    psych_data = data.loc[(data['freq_trans'] <= 0.5) & (data['freq_trans'] >= -0.5), wanted_cols_all].copy()
+    psych_data_melt = pd.melt(psych_data, id_vars=wanted_cols_all[:-1],
+                              value_vars=wanted_cols_all[-1:])
+    melt_cols = wanted_cols_all[:-1]
+    melt_cols.append('variable')
+    inpt_stack_all = psych_data_melt.groupby(melt_cols)['value'].value_counts(
+        normalize=True).unstack('value').reset_index()
+
+    # plot individual and all
+    g = sns.FacetGrid(inpt_stack, row='prev_choice', col='difficulty_freq', hue='prev_failure', height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend()
+    axes = g.axes.flatten()
+    for i, ax in enumerate(axes):
+        if i < 2:
+            p_choice_ind = -1
+            diff_freq_ind = i
+        else:
+            p_choice_ind = 1
+            diff_freq_ind = i - 2
+        sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.difficulty_freq==diff_freq_ind)
+                                             &(inpt_stack_all.prev_choice==p_choice_ind)], x='binned_freq', y=0,ax=ax,color='k');
+    plt.show()
+
 
 # TODO:
 # figure out state transition dynamics
