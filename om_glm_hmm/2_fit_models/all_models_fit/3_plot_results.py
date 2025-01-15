@@ -53,7 +53,8 @@ all_animals = 0
 # flag for running individual animals analysis
 individual_animals = 0
 # flag for running k-state glm fit check
-glm_fit_check = 0
+glm_fit_check = 1
+sim_data = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
 pred_acc_plot_multialpha = 0
@@ -215,55 +216,193 @@ if pred_acc_plot:
 ##################### K-STATE GLM FIT CHECK ########################################
 ##################### SIMULATE VEC #################################################
 if glm_fit_check:
-    n_trials = n_trials_lst[0]
-    # simulate stim vec
-    stim_vec_sim = simulate_stim(n_trials+1)
-    # z score stim vec
-    z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
-    # define col names for simulated dataframe
-    col_names = labels_for_plot + ['choice','outcome','stim_org','state','animal']
-    # psychometrics stim list - since min/max freq_trans is -1.5/1.5
-    bin_lst = np.arange(-1.55, 1.6, 0.1)
-    bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
-    # iterate over all k-states model
-    for K in range(2,K_max+1):
-        # create fig
-        fig, ax= plt.subplots(3,K,figsize=(K+4,8),sharey="row")
-        # initialize simulated array
-        inpt_sim = np.zeros(len(col_names)).reshape(1, -1)
-        # get global weights - the function also permutate the states
-        global_weight_vectors = get_global_weights(results_dir, K)
-        # get global transition matrix
-        global_transition_matrix = get_global_trans_mat(results_dir, K)
-        # get global state dwell times
-        global_dwell_times = 1 / (np.ones(K) - global_transition_matrix.diagonal())
-        state_dwell_times = np.zeros((len(animal_list)+1, K))
-        # iterate over k-state to simulate glm data
-        for k_ind in range(K):
-            # simulate input array and choice
-            inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(global_weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
-            # add original simulated stim vec
-            inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
-            # add state info
-            inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
-            # add animal info
-            inpt_sim_tmp = np.append(inpt_sim_tmp, np.zeros(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
-            # stack simulated input for each k
-            inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
+    # plot psychometrics of simulated data
+    if sim_data:
+        n_trials = n_trials_lst[0]
+        # simulate stim vec
+        stim_vec_sim = simulate_stim(n_trials+1)
+        # z score stim vec
+        z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
+        # define col names for simulated dataframe
+        col_names = labels_for_plot + ['choice','outcome','stim_org','state','animal']
+        # psychometrics stim list - since min/max freq_trans is -1.5/1.5
+        bin_lst = np.arange(-1.55, 1.6, 0.1)
+        bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
+        # iterate over all k-states model
+        for K in range(2,K_max+1):
+            # create fig
+            fig, ax= plt.subplots(3,K,figsize=(K+4,8),sharey="row")
+            # initialize simulated array
+            inpt_sim = np.zeros(len(col_names)).reshape(1, -1)
+            # get global weights - the function also permutate the states
+            global_weight_vectors = get_global_weights(results_dir, K)
+            # get global transition matrix
+            global_transition_matrix = get_global_trans_mat(results_dir, K)
+            # get global state dwell times
+            global_dwell_times = 1 / (np.ones(K) - global_transition_matrix.diagonal())
+            state_dwell_times = np.zeros((len(animal_list)+1, K))
+            # iterate over k-state to simulate glm data
+            for k_ind in range(K):
+                # simulate input array and choice
+                inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(global_weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
+                # add original simulated stim vec
+                inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
+                # add state info
+                inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+                # add animal info
+                inpt_sim_tmp = np.append(inpt_sim_tmp, np.zeros(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+                # stack simulated input for each k
+                inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
 
-        # now do it for separate animals
-        for k_ind in range(K):
-            for z,animal in enumerate(animal_list):
+            # now do it for separate animals
+            for k_ind in range(K):
+                for z,animal in enumerate(animal_list):
+                    results_dir_individual_animal = results_dir_individual / animal
+
+                    cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
+                    cvbt_folds_model = load_cv_arr(cv_file)
+
+                    with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
+                        best_init_cvbt_dict = json.load(f)
+
+                    # Get the file name corresponding to the best initialization for
+                    # given K value
+                    raw_file = get_file_name_for_best_model_fold(
+                        cvbt_folds_model, K, results_dir_individual_animal, best_init_cvbt_dict)
+                    hmm_params, lls = load_glmhmm_data(raw_file)
+                    weight_vectors = -hmm_params[2]
+                    transition_matrix = np.exp(hmm_params[1][0])
+                    # state dwell times for individual animals
+                    state_dwell_times[z, :] = 1 / (np.ones(K) -
+                                                   transition_matrix.diagonal())
+
+                    # # simulate input array and choice
+                    inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind, :, :]), n_trials,
+                                                                            z_stim_sim)
+                    # add original simulated stim vec
+                    inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
+                    # add state info
+                    inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+                    # add animal info
+                    inpt_sim_tmp = np.append(inpt_sim_tmp, int(float(animal))*np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
+                    # stack simulated input for each k
+                    inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
+
+                    # plot individual weights here
+                    ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
+
+                ######################## K-STATE WEIGHTS ################################################
+                ax[0, k_ind].plot(labels_for_plot, np.squeeze(global_weight_vectors[k_ind, :, :]), label='global',
+                                  color='black', linewidth=1.5)
+                ax[0, k_ind].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+                ax[0, k_ind].axhline(0, linewidth=0.5, linestyle='--')
+                ax[0, k_ind].set_title('state ' + str(k_ind))
+                ######################## DWELL TIMES ####################################################
+                logbins = np.logspace(np.log10(1),
+                                      np.log10(max(state_dwell_times[:, k_ind])), 15)
+                # plot dwell times for each state
+                ax[2,k_ind].hist(state_dwell_times[:, k_ind],
+                         bins=logbins,
+                         color=cols[k_ind],
+                         histtype='bar',
+                         rwidth=0.8)
+                ax[2,k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
+                            linestyle='--',
+                            color='k',
+                            lw=1,
+                            label='median')
+                # if k_ind == 0:
+                #     ax[2,k_ind].set_ylabel("# animals", fontsize=12)
+                # ax[2,k_ind].set_xlabel("expected dwell time \n (# trials)",
+                #            fontsize=12)
+
+            # create dataframe
+            inpt_sim_df = pd.DataFrame(data=inpt_sim[1:,:],columns=col_names)
+
+            ##################### PSYCHOMETRIC CURVES ##########################################
+            # get binned freqs for psychometrics
+            inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+            sim_stack = inpt_sim_df.groupby(['binned_freq','state','animal'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
+            sim_stack[-1] = sim_stack[-1].fillna(0)
+            # sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
+            ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
+            for k_ind in range(K):
+                for animal in animal_list:
+                    ax[1,k_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[(sim_stack.state==k_ind)&(sim_stack.animal==int(float(animal)))],'--',color=cols[k_ind])
+                ax[1, k_ind].plot(sim_stack.binned_freq.unique(), sim_stack[-1].loc[(sim_stack.state == k_ind)&(sim_stack.animal==0)],color='black')
+                ax[1, k_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
+                ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
+                ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
+            plt.tight_layout()
+            plt.show()
+            fig.savefig('plots/all_K'+ str(K) + '_glmhmm_modelcheck.png',format='png',bbox_inches = "tight")
+    # plot psychometrics of real data
+    else:
+
+        # psychometrics stim list - since min/max freq_trans is -1.5/1.5
+        bin_lst = np.arange(-1.55, 1.6, 0.1)
+        bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
+        # load dictionary for best cv model run
+        with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
+            best_init_cvbt_dict = json.load(f)
+        # load cv array
+        cv_file = results_dir / 'cvbt_folds_model.npz'
+        cvbt_folds_model = load_cv_arr(cv_file)
+
+        # load animal data for simulation
+        inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
+        inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
+        # create dataframe all animals for plotting
+        inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
+        inpt_data_all = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
+        inpt_data_all['choice'] = y
+        # prepare data
+        violation_idx = np.where(y == -1)[0]
+        nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                       inpt.shape[0])
+        y[np.where(y == -1), :] = 1
+        inputs, datas, train_masks = partition_data_by_session(
+            np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+        M = inputs[0].shape[1]
+        D = datas[0].shape[1]
+
+        # iterate over all k-states model
+        for K in range(2, K_max + 1):
+            # create fig
+            fig, ax = plt.subplots(3, K, figsize=(K + 4, 8), sharey="row")
+            # get global weights - the function also permutate the states
+            global_weight_vectors = get_global_weights(results_dir, K)
+            # get global transition matrix
+            global_transition_matrix = get_global_trans_mat(results_dir, K)
+            # get global state dwell times
+            global_dwell_times = 1 / (np.ones(K) - global_transition_matrix.diagonal())
+            state_dwell_times = np.zeros((len(animal_list) + 1, K))
+
+            raw_file = get_file_name_for_best_model_fold(
+                cvbt_folds_model, K, results_dir, best_init_cvbt_dict)
+            hmm_params, lls = load_glmhmm_data(raw_file)
+            weight_vectors = -hmm_params[2]
+            log_transition_matrix = hmm_params[1][0]
+            init_state_dist = hmm_params[0][0]
+
+            # get posterior probs for state inference
+            posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                                     hmm_params, K, range(K))
+            states_max_posterior = np.argmax(posterior_probs, axis=1)
+            inpt_data_all['state'] = states_max_posterior
+            inpt_data_all['animal'] = np.zeros(len(inpt_data))
+
+            # now do it for separate animals
+            for z, animal in enumerate(animal_list):
+                print(animal)
                 results_dir_individual_animal = results_dir_individual / animal
-
                 cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
                 cvbt_folds_model = load_cv_arr(cv_file)
 
                 with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
                     best_init_cvbt_dict = json.load(f)
 
-                # Get the file name corresponding to the best initialization for
-                # given K value
+                # Get the file name corresponding to the best initialization for given K value
                 raw_file = get_file_name_for_best_model_fold(
                     cvbt_folds_model, K, results_dir_individual_animal, best_init_cvbt_dict)
                 hmm_params, lls = load_glmhmm_data(raw_file)
@@ -272,67 +411,84 @@ if glm_fit_check:
                 # state dwell times for individual animals
                 state_dwell_times[z, :] = 1 / (np.ones(K) -
                                                transition_matrix.diagonal())
-
-                # # simulate input array and choice
-                inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind, :, :]), n_trials,
-                                                                        z_stim_sim)
-                # add original simulated stim vec
-                inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
-                # add state info
-                inpt_sim_tmp = np.append(inpt_sim_tmp, k_ind * np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
-                # add animal info
-                inpt_sim_tmp = np.append(inpt_sim_tmp, int(float(animal))*np.ones(inpt_sim_tmp.shape[0]).reshape(-1, 1), axis=1)
-                # stack simulated input for each k
-                inpt_sim = np.vstack((inpt_sim, inpt_sim_tmp))
+                # Also get data for animal:
+                inpt, y, session = load_data(data_individual / (animal + '_processed.npz'))
+                inpt_unnorm, _, _ = load_data(data_individual / (animal + '_unnormalized.npz'))
+                all_sessions = np.unique(session)
+                # create dataframe single animals for plotting
+                inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
+                inpt_data = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
+                inpt_data['choice'] = y
+                # prepare data
+                violation_idx = np.where(y == -1)[0]
+                nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                               inpt.shape[0])
+                y[np.where(y == -1), :] = 1
+                inputs, datas, train_masks = partition_data_by_session(
+                    np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+                M = inputs[0].shape[1]
+                D = datas[0].shape[1]
+                # get posterior probs for state inference
+                posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                                         hmm_params, K, range(K))
+                states_max_posterior = np.argmax(posterior_probs, axis=1)
+                inpt_data['state'] = states_max_posterior
+                inpt_data['animal'] = np.ones(len(inpt_data)) * int(float(animal))
+                # stack data from individual animals
+                inpt_data_all = pd.concat([inpt_data_all, inpt_data], ignore_index=True)
 
                 # plot individual weights here
-                ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
+                for k_ind in range(K):
+                    ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
+                del inpt, inpt_data, inpt_unnorm, y
 
-            ######################## K-STATE WEIGHTS ################################################
-            ax[0, k_ind].plot(labels_for_plot, np.squeeze(global_weight_vectors[k_ind, :, :]), label='global',
-                              color='black', linewidth=1.5)
-            ax[0, k_ind].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
-            ax[0, k_ind].axhline(0, linewidth=0.5, linestyle='--')
-            ax[0, k_ind].set_title('state ' + str(k_ind))
-            ######################## DWELL TIMES ####################################################
-            logbins = np.logspace(np.log10(1),
-                                  np.log10(max(state_dwell_times[:, k_ind])), 15)
-            # plot dwell times for each state
-            ax[2,k_ind].hist(state_dwell_times[:, k_ind],
-                     bins=logbins,
-                     color=cols[k_ind],
-                     histtype='bar',
-                     rwidth=0.8)
-            ax[2,k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
-                        linestyle='--',
-                        color='k',
-                        lw=1,
-                        label='median')
-            # if k_ind == 0:
-            #     ax[2,k_ind].set_ylabel("# animals", fontsize=12)
-            # ax[2,k_ind].set_xlabel("expected dwell time \n (# trials)",
-            #            fontsize=12)
+            # iterate over each state of K-state model
+            for k_ind in range(K):
+                ######################## K-STATE WEIGHTS ################################################
+                ax[0, k_ind].plot(labels_for_plot, np.squeeze(global_weight_vectors[k_ind, :, :]), label='global',
+                                  color='black', linewidth=1.5)
+                ax[0, k_ind].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+                ax[0, k_ind].axhline(0, linewidth=0.5, linestyle='--')
+                ax[0, k_ind].set_title('state ' + str(k_ind))
+                ######################## DWELL TIMES ####################################################
+                logbins = np.logspace(np.log10(1),
+                                      np.log10(max(state_dwell_times[:, k_ind])), 15)
+                # plot dwell times for each state
+                ax[2, k_ind].hist(state_dwell_times[:, k_ind],
+                                  bins=logbins,
+                                  color=cols[k_ind],
+                                  histtype='bar',
+                                  rwidth=0.8)
+                ax[2, k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
+                                     linestyle='--',
+                                     color='k',
+                                     lw=1,
+                                     label='median')
+                ##################### PSYCHOMETRIC CURVES ##########################################
+                # get binned freqs for psychometrics
+                inpt_data_all["binned_freq"] = pd.cut(inpt_data_all.stim_org, bins=bin_lst, labels=[str(x) for x in bin_name],
+                                                    include_lowest=True)
+                sim_stack = inpt_data_all.groupby(['binned_freq', 'state', 'animal'])['choice'].value_counts(
+                    normalize=True).unstack('choice').reset_index()
+                sim_stack[-1] = sim_stack[-1].fillna(0)
+                # sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
+                ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
+                for k_ind in range(K):
+                    for animal in animal_list:
+                        ax[1, k_ind].plot(sim_stack.binned_freq.unique(), sim_stack[-1].loc[
+                            (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))], '--', color=cols[k_ind])
+                    ax[1, k_ind].plot(sim_stack.binned_freq.unique(),
+                                      sim_stack[-1].loc[(sim_stack.state == k_ind) & (sim_stack.animal == 0)],
+                                      color='black')
+                    ax[1, k_ind].set_xticklabels(labels=[str(x) for x in sim_stack.binned_freq.unique()], fontsize=12,
+                                                 rotation=45)
+                    ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
+                    ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
+                plt.tight_layout()
+                plt.show()
+                fig.savefig('plots/all_K' + str(K) + '_glmhmm_modelcheck_realdata.png', format='png', bbox_inches="tight")
 
-        # create dataframe
-        inpt_sim_df = pd.DataFrame(data=inpt_sim[1:,:],columns=col_names)
 
-        ##################### PSYCHOMETRIC CURVES ##########################################
-        # get binned freqs for psychometrics
-        inpt_sim_df["binned_freq"] = pd.cut(inpt_sim_df.stim_org, bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
-        sim_stack = inpt_sim_df.groupby(['binned_freq','state','animal'])['choice'].value_counts(normalize=True).unstack('choice').reset_index()
-        sim_stack[-1] = sim_stack[-1].fillna(0)
-        # sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
-        ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
-        for k_ind in range(K):
-            for animal in animal_list:
-                ax[1,k_ind].plot(sim_stack.binned_freq.unique(),sim_stack[-1].loc[(sim_stack.state==k_ind)&(sim_stack.animal==int(float(animal)))],'--',color=cols[k_ind])
-            ax[1, k_ind].plot(sim_stack.binned_freq.unique(), sim_stack[-1].loc[(sim_stack.state == k_ind)&(sim_stack.animal==0)],color='black')
-            ax[1, k_ind].set_xticklabels(labels= [str(x) for x in sim_stack.binned_freq.unique()] ,fontsize=12, rotation=45)
-            ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
-            ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
-        plt.tight_layout()
-        plt.show()
-        fig.savefig('plots/all_K'+ str(K) + '_glmhmm_modelcheck.png',format='png',bbox_inches = "tight")
 
 ######################################################################################
 ##################### ALL ANIMALS ####################################################
@@ -1256,6 +1412,15 @@ if exploratory_plot:
     import seaborn as sns
 
     data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_glmm_choice_pred.csv')
+
+    # to segregate RTs?
+    from sklearn.mixture import GaussianMixture
+
+    samples = np.array(data.RT.loc[data.success == 0])
+    mixture = GaussianMixture(n_components=2).fit(samples.reshape(-1, 1))
+    pred = GaussianMixture.predict(mixture, samples.reshape(-1, 1))
+
+
     index = data.index
     data['mouse_batch'] = np.zeros(len(data))
     data['mouse_batch'].loc[data.mouse_id <= 10] = 1
@@ -1306,7 +1471,7 @@ if exploratory_plot:
 
     # break down difficulty level of the previous trial
     data['difficulty_freq'] = np.zeros(len(data))
-    data.loc[(data.prev_freq_trans < 0.3) & (data.prev_freq_trans > -.3), 'difficulty_freq'] = 1
+    data.loc[(data.prev_freq_trans < 0.2) & (data.prev_freq_trans > -.2), 'difficulty_freq'] = 1
     # get columns to restack data and plot
     wanted_cols = ['binned_freq','difficulty_freq','prev_choice', 'prev_failure', 'lick_side_freq']
     # only get steady state performance
@@ -1319,7 +1484,7 @@ if exploratory_plot:
         normalize=True).unstack('value').reset_index()
 
     # repeat with the all data stack
-    wanted_cols_all = ['binned_freq', 'difficulty_freq', 'prev_choice', 'lick_side_freq']
+    wanted_cols_all = ['binned_freq', 'prev_choice', 'prev_failure', 'lick_side_freq']
     psych_data = data.loc[(data['freq_trans'] <= 0.5) & (data['freq_trans'] >= -0.5), wanted_cols_all].copy()
     psych_data_melt = pd.melt(psych_data, id_vars=wanted_cols_all[:-1],
                               value_vars=wanted_cols_all[-1:])
@@ -1328,19 +1493,50 @@ if exploratory_plot:
     inpt_stack_all = psych_data_melt.groupby(melt_cols)['value'].value_counts(
         normalize=True).unstack('value').reset_index()
 
+
+    # repeat with the all data stack
+    wanted_cols_all_all = ['binned_freq', 'prev_choice', 'lick_side_freq']
+    psych_data = data.loc[(data['freq_trans'] <= 0.5) & (data['freq_trans'] >= -0.5), wanted_cols_all_all].copy()
+    psych_data_melt = pd.melt(psych_data, id_vars=wanted_cols_all_all[:-1],
+                              value_vars=wanted_cols_all_all[-1:])
+    melt_cols = wanted_cols_all_all[:-1]
+    melt_cols.append('variable')
+    inpt_stack_all_all = psych_data_melt.groupby(melt_cols)['value'].value_counts(
+        normalize=True).unstack('value').reset_index()
+
     # plot individual and all
-    g = sns.FacetGrid(inpt_stack, row='prev_choice', col='difficulty_freq', hue='prev_failure', height=3.5, aspect=.95)
+    g = sns.FacetGrid(inpt_stack, row='prev_choice', hue='difficulty_freq', col='prev_failure', height=3.5, aspect=.95)
     g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend()
+    # plt.show()
     axes = g.axes.flatten()
     for i, ax in enumerate(axes):
         if i < 2:
+            # p_choice_ind = -1
+            # diff_freq_ind = i
+
+            # diff_freq_ind = 0
+            # p_fail_ind = i
+
+            p_fail_ind = i
             p_choice_ind = -1
-            diff_freq_ind = i
         else:
+            # p_choice_ind = 1
+            # diff_freq_ind = i - 2
+
+            # diff_freq_ind = 1
+            # p_fail_ind = i-2
+
+            p_fail_ind = i-2
             p_choice_ind = 1
-            diff_freq_ind = i - 2
-        sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.difficulty_freq==diff_freq_ind)
-                                             &(inpt_stack_all.prev_choice==p_choice_ind)], x='binned_freq', y=0,ax=ax,color='k');
+        # sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.difficulty_freq==diff_freq_ind)
+        #                                      &(inpt_stack_all.prev_choice==p_choice_ind)], x='binned_freq', y=0,ax=ax,color='k');
+        # sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.difficulty_freq == diff_freq_ind)
+        #                                      &(inpt_stack_all.prev_failure==p_fail_ind)], x='binned_freq', y=0,ax=ax,color='k');
+
+        sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.prev_choice == p_choice_ind)
+                                             & (inpt_stack_all.prev_failure == p_fail_ind)], x='binned_freq', y=0, ax=ax, color='k');
+        # sns.lineplot(data=inpt_stack_all_all.loc[(inpt_stack_all_all.prev_choice == p_choice_ind)],
+        #              x='binned_freq', y=0, ax=ax, color='brown', linestyle='dashed');
     plt.show()
 
 
