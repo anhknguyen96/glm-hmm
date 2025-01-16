@@ -14,7 +14,11 @@ from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
     load_correct_incorrect_mat, calculate_state_permutation
 from simulate_data_from_glm import *
 from ssm.util import find_permutation
-
+from scipy.optimize import curve_fit
+# plot psychometrics
+def sigmoid(x, L ,x0, k, b):
+    y = L / (1 + np.exp(-k*(x-x0))) + b
+    return (y)
 
 ######################### PARAMS ####################################################
 # NOTES:
@@ -45,8 +49,8 @@ cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#999999', '#e41a1c', '#dede00'
     ]
 
-# trouble_animals =['23.0','24.0','26.0']
-# animal_list = list(set(animal_list)-set(trouble_animals))
+trouble_animals =['23.0','24.0','26.0']
+animal_list = list(set(animal_list)-set(trouble_animals))
 
 # flag for running all_animals analysis
 all_animals = 0
@@ -344,32 +348,35 @@ if glm_fit_check:
         bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
         # load dictionary for best cv model run
         with open(results_dir / "best_init_cvbt_dict.json", 'r') as f:
-            best_init_cvbt_dict = json.load(f)
+            global_best_init_cvbt_dict = json.load(f)
         # load cv array
-        cv_file = results_dir / 'cvbt_folds_model.npz'
-        cvbt_folds_model = load_cv_arr(cv_file)
+        global_cv_file = results_dir / 'cvbt_folds_model.npz'
+        global_cvbt_folds_model = load_cv_arr(global_cv_file)
 
         # load animal data for simulation
         inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
         inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
         # create dataframe all animals for plotting
         inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
-        inpt_data_all = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
-        inpt_data_all['choice'] = y
+        global_inpt_data_all = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
+        global_inpt_data_all['choice'] = y
         # prepare data
         violation_idx = np.where(y == -1)[0]
         nonviolation_idx, mask = create_violation_mask(violation_idx,
                                                        inpt.shape[0])
         y[np.where(y == -1), :] = 1
-        inputs, datas, train_masks = partition_data_by_session(
+        global_inputs, global_datas, global_train_masks = partition_data_by_session(
             np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
-        M = inputs[0].shape[1]
-        D = datas[0].shape[1]
 
         # iterate over all k-states model
         for K in range(2, K_max + 1):
             # create fig
             fig, ax = plt.subplots(3, K, figsize=(K + 4, 8), sharey="row")
+            inpt_data_all = pd.DataFrame()
+            # get global raw file for each state
+            raw_file = get_file_name_for_best_model_fold(
+                global_cvbt_folds_model, K, results_dir, global_best_init_cvbt_dict)
+            hmm_params, lls = load_glmhmm_data(raw_file)
             # get global weights - the function also permutate the states
             global_weight_vectors = get_global_weights(results_dir, K)
             # get global transition matrix
@@ -378,20 +385,16 @@ if glm_fit_check:
             global_dwell_times = 1 / (np.ones(K) - global_transition_matrix.diagonal())
             state_dwell_times = np.zeros((len(animal_list) + 1, K))
 
-            raw_file = get_file_name_for_best_model_fold(
-                cvbt_folds_model, K, results_dir, best_init_cvbt_dict)
-            hmm_params, lls = load_glmhmm_data(raw_file)
-            weight_vectors = -hmm_params[2]
-            log_transition_matrix = hmm_params[1][0]
-            init_state_dist = hmm_params[0][0]
-
             # get posterior probs for state inference
-            posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
-                                                     hmm_params, K, range(K))
+            permutation_to_align_individual_animals = calculate_state_permutation(hmm_params)
+            posterior_probs = get_marginal_posterior(global_inputs, global_datas, global_train_masks,
+                                                     hmm_params, K, permutation_to_align_individual_animals)
             states_max_posterior = np.argmax(posterior_probs, axis=1)
-            inpt_data_all['state'] = states_max_posterior
-            inpt_data_all['animal'] = np.zeros(len(inpt_data))
+            global_inpt_data_all['state'] = states_max_posterior
+            global_inpt_data_all['animal'] = np.zeros(len(global_inpt_data_all))
 
+            # add global data info to indiv data frame
+            inpt_data_all = pd.concat([inpt_data_all, global_inpt_data_all],ignore_index=True)
             # now do it for separate animals
             for z, animal in enumerate(animal_list):
                 print(animal)
@@ -442,6 +445,17 @@ if glm_fit_check:
                     ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
                 del inpt, inpt_data, inpt_unnorm, y
 
+            ##################### PSYCHOMETRIC CURVES ##########################################
+            # get binned freqs for psychometrics
+            inpt_data_all["binned_freq"] = pd.cut(inpt_data_all['stim'], bins=bin_lst,
+                                                  labels=[str(x) for x in bin_name],
+                                                  include_lowest=True)
+            sim_stack = inpt_data_all.groupby(['binned_freq', 'state', 'animal'])['choice'].value_counts(
+                normalize=True).unstack('choice').reset_index()
+            sim_stack[0] = sim_stack[0].fillna(0)
+            sim_stack['binned_freq'] = sim_stack['binned_freq'].astype('float')
+            sim_stack = sim_stack.loc[(sim_stack.binned_freq > -0.7) & (sim_stack.binned_freq < 0.7)]
+
             # iterate over each state of K-state model
             for k_ind in range(K):
                 ######################## K-STATE WEIGHTS ################################################
@@ -464,29 +478,46 @@ if glm_fit_check:
                                      color='k',
                                      lw=1,
                                      label='median')
-                ##################### PSYCHOMETRIC CURVES ##########################################
-                # get binned freqs for psychometrics
-                inpt_data_all["binned_freq"] = pd.cut(inpt_data_all.stim_org, bins=bin_lst, labels=[str(x) for x in bin_name],
-                                                    include_lowest=True)
-                sim_stack = inpt_data_all.groupby(['binned_freq', 'state', 'animal'])['choice'].value_counts(
-                    normalize=True).unstack('choice').reset_index()
-                sim_stack[-1] = sim_stack[-1].fillna(0)
-                # sns.lineplot(sim_stack.binned_freq,sim_stack[-1],hue=sim_stack.state);plt.show()
+
                 ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
-                for k_ind in range(K):
-                    for animal in animal_list:
-                        ax[1, k_ind].plot(sim_stack.binned_freq.unique(), sim_stack[-1].loc[
-                            (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))], '--', color=cols[k_ind])
-                    ax[1, k_ind].plot(sim_stack.binned_freq.unique(),
-                                      sim_stack[-1].loc[(sim_stack.state == k_ind) & (sim_stack.animal == 0)],
-                                      color='black')
-                    ax[1, k_ind].set_xticklabels(labels=[str(x) for x in sim_stack.binned_freq.unique()], fontsize=12,
-                                                 rotation=45)
-                    ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
-                    ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
-                plt.tight_layout()
-                plt.show()
-                fig.savefig('plots/all_K' + str(K) + '_glmhmm_modelcheck_realdata.png', format='png', bbox_inches="tight")
+                for animal in animal_list:
+                    x_data = inpt_data_all['stim'].loc[(inpt_data_all.stim > -0.7) & (inpt_data_all.stim < 0.7)
+                        & (inpt_data_all.state == k_ind) & (inpt_data_all.animal == int(float(animal)))]
+                    y_data = -inpt_data_all['choice'].loc[(inpt_data_all.stim > -0.7) & (inpt_data_all.stim < 0.7)
+                        & (inpt_data_all.state == k_ind) & (inpt_data_all.animal == int(float(animal)))]
+                    y_data = y_data.map({0:1, -1:-1})
+                    y_data = y_data.map({1: 1, -1: 0})
+                    # x_data = sim_stack['binned_freq'].loc[
+                    #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))].unique()
+                    # y_data = sim_stack[0].loc[
+                    #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))]
+                    p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # this is an mandatory initial guess
+
+                    try:
+                        popt, pcov = curve_fit(sigmoid, x_data, y_data, p0, method='dogbox')
+                    except RuntimeError:
+                        continue
+                    y = sigmoid(x_data, *popt)
+                    ax[1, k_ind].scatter(x_data, y, s=1, color=cols[k_ind])
+
+                    # ax[1, k_ind].plot(sim_stack['binned_freq'].loc[
+                    #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))].unique(), sim_stack[0].loc[
+                    #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))], '--', color=cols[k_ind])
+                ax[1, k_ind].plot(sim_stack.binned_freq.unique(),
+                                  sim_stack[0].loc[(sim_stack.state == k_ind) & (sim_stack.animal == 0)],
+                                  color='black')
+                # miscellaneous
+                ax[1, k_ind].get_xaxis().tick_bottom()
+                ax[1, k_ind].set_xlim(-.65, .75)
+                ax[1, k_ind].set_xticks(np.arange(-.7, .9, 0.2))
+                ax[1, k_ind].set_xticklabels(labels=[str(np.round(x,2)) for x in np.arange(-.7, .9, 0.2)], fontsize=12,
+                                              rotation=45)
+                ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
+                ax[1, k_ind].axvline(0, linewidth=0.5, linestyle='--')
+            plt.tight_layout()
+            plt.show()
+            fig.savefig('plots/all_K' + str(K) + '_glmhmm_modelcheck_realdata.png', format='png', bbox_inches="tight")
+            del inpt_data_all
 
 
 
