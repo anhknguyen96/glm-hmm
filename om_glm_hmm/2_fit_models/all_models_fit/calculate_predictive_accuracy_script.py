@@ -17,10 +17,15 @@ from plotting_utils import load_glmhmm_data, load_animal_list, load_cv_arr, \
 cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306"]
 
 if __name__ == '__main__':
-    root_folder_dir = '/home/anh/Documents'
+    root_folder_dir = '/home/anh/Documents/phd'
     root_folder_name = 'om_choice'
-    root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
-    root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
+    test_alpha = 0
+    if test_alpha == 1:
+        label_alpha = '_transitionalpha_1-2'
+    else:
+        label_alpha = ''
+    root_data_dir = Path(root_folder_dir) / root_folder_name / ('data' + label_alpha)
+    root_result_dir = Path(root_folder_dir) / root_folder_name / ('result' + label_alpha)
 
     data_dir = root_data_dir / (root_folder_name + '_data_for_cluster')
     data_individual = data_dir / 'data_by_animal'
