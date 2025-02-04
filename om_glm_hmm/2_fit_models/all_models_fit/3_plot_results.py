@@ -65,7 +65,7 @@ pred_acc_plot_multialpha = 0
 # flag for one animal
 one_animal = 0
 
-exploratory_plot = 1
+exploratory_plot = 0
 
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
@@ -74,14 +74,15 @@ if pred_acc_plot_multialpha:
     K_plot = 5
     D, M, C = 1, 3, 2
 
-    plt_xticks_location = np.arange(K_plot)
-    plt_xticks_label =  [str(x) for x in (plt_xticks_location + 1)]
+    plt_xticks_location = np.arange(3)
+    plt_xticks_label =  ['standard', r"$\Delta$ lower", r"$\Delta$ higher"]
     idx_cv_arr = [1,2]
+
 
     # =========== NLL ====================================
     # plt.subplot(3, 3, 1)
-    fig, ax = plt.subplots(figsize=(3, 3))
-    across_animals = np.zeros((3,5))
+    fig, ax = plt.subplots(figsize=(5, 3))
+    across_animals = np.zeros((1,4))
     for animal in animal_list:
         results_dir_individual_animal = results_dir_individual / animal
         cv_arr = load_cv_arr(results_dir_individual_animal / "cvbt_folds_model.npz")
@@ -92,11 +93,22 @@ if pred_acc_plot_multialpha:
         mean_cvbt_3 = np.mean(cv_arr_3, axis=1)
 
         tmp_mean = np.stack((mean_cvbt,mean_cvbt_1,mean_cvbt_3))
-        tmp_mean = tmp_mean - tmp_mean[0,:]
-        ax.plot(tmp_mean[:,1],color='k',lw=1.5)
-        across_animals = np.dstack((across_animals,tmp_mean))
-    across_animals = across_animals[:,:,1:]
+        tmp_mean = (tmp_mean - tmp_mean[0,:]).T
+        tmp_mean[:, 0] = int(float(animal)) * np.ones(K)
+        tmp_mean = np.hstack((tmp_mean,np.zeros((K,1))))
+        tmp_mean[:,-1] = np.arange(K)+1
+        # ax.plot(plt_xticks_location, tmp_mean[:,1],color='k',lw=1.5)
+        across_animals = np.vstack((across_animals,tmp_mean))
+    # plt.xticks(plt_xticks_location, plt_xticks_label,
+    #            fontsize=10)
+    across_animals = across_animals[1:,:]
+    delta_pd = pd.DataFrame(across_animals, columns=['animal_id','lower','higher','K-state'])
+    delta_pd = pd.melt(delta_pd, id_vars=['animal_id','K-state'], value_vars=['lower', 'higher'], var_name='delta_alpha', value_name='delta_LL')
+    # delta_pd['delta_LL'] = delta_pd['delta_LL'].round(2)
+    sns.swarmplot(data=delta_pd, x='K-state', y='delta_LL', hue='delta_alpha', dodge=True,ax=ax); plt.tight_layout()
+    fig.savefig('plots/fig4_a' + 'delta_K_' + str(K_plot) + '_all.png', format='png', bbox_inches="tight")
     plt.show()
+    # plt.show()
 
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
@@ -481,28 +493,29 @@ if glm_fit_check:
 
                 ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
                 for animal in animal_list:
-                    x_data = inpt_data_all['stim'].loc[(inpt_data_all.stim > -0.7) & (inpt_data_all.stim < 0.7)
-                        & (inpt_data_all.state == k_ind) & (inpt_data_all.animal == int(float(animal)))]
-                    y_data = -inpt_data_all['choice'].loc[(inpt_data_all.stim > -0.7) & (inpt_data_all.stim < 0.7)
-                        & (inpt_data_all.state == k_ind) & (inpt_data_all.animal == int(float(animal)))]
-                    y_data = y_data.map({0:1, -1:-1})
-                    y_data = y_data.map({1: 1, -1: 0})
+                    # x_data = inpt_data_all['stim'].loc[(inpt_data_all.stim > -0.7) & (inpt_data_all.stim < 0.7)
+                    #     & (inpt_data_all.state == k_ind) & (inpt_data_all.animal == int(float(animal)))]
+                    # y_data = -inpt_data_all['choice'].loc[(inpt_data_all.stim > -0.7) & (inpt_data_all.stim < 0.7)
+                    #     & (inpt_data_all.state == k_ind) & (inpt_data_all.animal == int(float(animal)))]
+                    # y_data = y_data.map({0:1, -1:-1})
+                    # # y_data = y_data.map({1: 1, -1: 0})
                     # x_data = sim_stack['binned_freq'].loc[
                     #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))].unique()
                     # y_data = sim_stack[0].loc[
                     #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))]
-                    p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # this is an mandatory initial guess
+                    # # p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # this is an mandatory initial guess
+                    #
+                    # try:
+                    #     popt, pcov = curve_fit(sigmoid, x_data, y_data, method='dogbox')
+                    # except RuntimeError:
+                    #     print(animal + '_state_' + str(k_ind) + '_model_' + str(K))
+                    #     continue
+                    # y = sigmoid(x_data, *popt)
+                    # ax[1, k_ind].plot(x_data, y, '--', color=cols[k_ind])
 
-                    try:
-                        popt, pcov = curve_fit(sigmoid, x_data, y_data, p0, method='dogbox')
-                    except RuntimeError:
-                        continue
-                    y = sigmoid(x_data, *popt)
-                    ax[1, k_ind].scatter(x_data, y, s=1, color=cols[k_ind])
-
-                    # ax[1, k_ind].plot(sim_stack['binned_freq'].loc[
-                    #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))].unique(), sim_stack[0].loc[
-                    #     (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))], '--', color=cols[k_ind])
+                    ax[1, k_ind].plot(sim_stack['binned_freq'].loc[
+                        (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))].unique(), sim_stack[0].loc[
+                        (sim_stack.state == k_ind) & (sim_stack.animal == int(float(animal)))], '--', color=cols[k_ind])
                 ax[1, k_ind].plot(sim_stack.binned_freq.unique(),
                                   sim_stack[0].loc[(sim_stack.state == k_ind) & (sim_stack.animal == 0)],
                                   color='black')
@@ -1247,7 +1260,7 @@ if exploratory_plot:
     #
     #     inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
     #
-    inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
+    # inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
     inpt_data_all = pd.read_csv(os.path.join(data_dir,'om_state_info.csv'))
     inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
     inpt_data_all.loc[inpt_data_all['state_change'] != 0, 'state_change'] = 1
@@ -1442,7 +1455,8 @@ if exploratory_plot:
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_glmm_choice_pred.csv')
+    # data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_glmm_choice_pred.csv')
+    data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_state_info.csv')
 
     # to segregate RTs?
     from sklearn.mixture import GaussianMixture
@@ -1502,7 +1516,7 @@ if exploratory_plot:
 
     # break down difficulty level of the previous trial
     data['difficulty_freq'] = np.zeros(len(data))
-    data.loc[(data.prev_freq_trans < 0.2) & (data.prev_freq_trans > -.2), 'difficulty_freq'] = 1
+    data.loc[(data.prev_freq_trans < 0.3) & (data.prev_freq_trans > -.3), 'difficulty_freq'] = 1
     # get columns to restack data and plot
     wanted_cols = ['binned_freq','difficulty_freq','prev_choice', 'prev_failure', 'lick_side_freq']
     # only get steady state performance
@@ -1536,7 +1550,8 @@ if exploratory_plot:
         normalize=True).unstack('value').reset_index()
 
     # plot individual and all
-    g = sns.FacetGrid(inpt_stack, row='prev_choice', hue='difficulty_freq', col='prev_failure', height=3.5, aspect=.95)
+
+    g = sns.FacetGrid(inpt_stack, row='pchoice', col='pfail', height=3.5, aspect=.95)
     g.map_dataframe(sns.lineplot, x='binned_freq', y=0); plt.legend()
     # plt.show()
     axes = g.axes.flatten()
@@ -1564,10 +1579,47 @@ if exploratory_plot:
         # sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.difficulty_freq == diff_freq_ind)
         #                                      &(inpt_stack_all.prev_failure==p_fail_ind)], x='binned_freq', y=0,ax=ax,color='k');
 
-        sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.prev_choice == p_choice_ind)
-                                             & (inpt_stack_all.prev_failure == p_fail_ind)], x='binned_freq', y=0, ax=ax, color='k');
-        # sns.lineplot(data=inpt_stack_all_all.loc[(inpt_stack_all_all.prev_choice == p_choice_ind)],
-        #              x='binned_freq', y=0, ax=ax, color='brown', linestyle='dashed');
+        # sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.pchoice == p_choice_ind)
+                                             # & (inpt_stack_all.pfail == p_fail_ind)], x='binned_freq', y=0, ax=ax, color='k');
+        sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all.pchoice == p_choice_ind)],
+                     x='binned_freq', y=0, ax=ax, color='brown', linestyle='dashed');
+
+    var_plot = 'pstim_choice_congruent'
+    inpt_stack = \
+    data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq',var_plot, 'pfail'])[
+        'choice'].value_counts(
+        normalize=True).unstack('choice').reset_index()
+    inpt_stack_all = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail'])[
+            'choice'].value_counts(
+            normalize=True).unstack('choice').reset_index()
+    g = sns.FacetGrid(inpt_stack, hue=var_plot, row='pfail', height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0);
+    plt.legend()
+    # plt.show()
+    axes = g.axes.flatten()
+    for i, ax in enumerate(axes):
+        sns.lineplot(data=inpt_stack_all.loc[(inpt_stack_all['pfail'] == i)],
+                     x='binned_freq', y=0, ax=ax, color='brown', linestyle='dashed');
+    plt.show()
+    # probability of repeat!?
+    var_plot = 'choice_congruent'
+    inpt_stack = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail', 'choice'])[
+            'choice_congruent'].value_counts(
+            normalize=True).unstack('choice_congruent').reset_index()
+    g = sns.FacetGrid(inpt_stack, col='pfail', hue='choice', height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=1);
+    plt.legend()
+    plt.show()
+    data = pd.read_csv(
+        '/home/anh/Documents/glmhmm/om_glm_hmm/2_fit_models/all_models_fit/simulated_global_om_glmhmm_K4.csv')
+    data['abs_stim'] = abs(data['stim_org'].copy())
+    fig, ax = plt.subplots(1, 4, figsize=(15, 5))
+    for i in range(4):
+        sns.violinplot(data=data.loc[data.state == i], x='outcome', y='abs_stim', hue='pfail', split=True, ax=ax[i])
+    plt.show()
+    sns.violinplot(data=data, x='outcome', y='abs_stim', hue='pfail', split=True);
     plt.show()
 
 
