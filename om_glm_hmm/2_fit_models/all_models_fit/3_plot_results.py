@@ -1605,13 +1605,30 @@ if exploratory_plot:
     # probability of repeat!?
     var_plot = 'choice_congruent'
     inpt_stack = \
-        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail', 'choice'])[
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail', 'pchoice'])[
             'choice_congruent'].value_counts(
             normalize=True).unstack('choice_congruent').reset_index()
-    g = sns.FacetGrid(inpt_stack, col='pfail', hue='choice', height=3.5, aspect=.95)
+    g = sns.FacetGrid(inpt_stack, col='pfail', hue='pchoice', height=3.5, aspect=.95)
     g.map_dataframe(sns.lineplot, x='binned_freq', y=1);
     plt.legend()
     plt.show()
+    # with diff freq
+    var_plot = 'choice_congruent'
+    inpt_stack = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', var_plot, 'difficulty_freq', 'pfail'])[
+            'choice'].value_counts(
+            normalize=True).unstack('choice').reset_index()
+    g = sns.FacetGrid(inpt_stack, col='pfail', hue=var_plot, row='difficulty_freq', height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0);
+    plt.legend()
+    plt.show()
+    # stats of pfail pdiff trials
+    inpt_stack = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'difficulty_freq'])[
+            'pfail'].value_counts(normalize=True).unstack('pfail').reset_index()
+    sns.lineplot(data=inpt_stack, x='binned_freq', y=1, hue='difficulty_freq');
+    plt.show()
+
     data = pd.read_csv(
         '/home/anh/Documents/glmhmm/om_glm_hmm/2_fit_models/all_models_fit/simulated_global_om_glmhmm_K4.csv')
     data['abs_stim'] = abs(data['stim_org'].copy())
@@ -1623,6 +1640,83 @@ if exploratory_plot:
     plt.show()
 
 
+    # PLOTS for meeting
+    ## pfail pchoice psych
+    hue_plot = 'pchoice'
+    y_label = 'p(High)'
+    inpt_stack = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail','difficulty_freq', hue_plot])[
+            'choice'].value_counts(
+            normalize=True).unstack('choice').reset_index()
+    inpt_stack_all = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail'])[
+            'choice'].value_counts(
+            normalize=True).unstack('choice').reset_index()
+    g = sns.FacetGrid(inpt_stack, col="pfail", row="difficulty_freq",hue=hue_plot, height=3.5, aspect=.8)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0);
+    g.set(ylim=(0, 1));
+    axes = g.axes.flatten()
+    # iterate through the axes
+    for i, ax in enumerate(axes):
+        ax.axhline(0.5, ls='--', c='black', linewidth=0.2)
+        ax.axvline(0, ls='--', c='black', linewidth=0.2)
+        # sns.lineplot(data=inpt_stack_all.loc[inpt_stack_all.pfail==i], x='binned_freq',y=0,color='k',ax=ax,legend=False)
+    g.set_axis_labels("Distance from threshold", "P(high)");
+    plt.legend(title=hue_plot)
+    g.tight_layout();
+    plt.show(); g.savefig(save_folder+'/all_psych_pfail_pchoice_pdiff.png',format='png',bbox_inches = "tight")
+
+    # congruent psych
+    hue_plot = 'pfail'
+    y_label = 'p(Repeat)'
+    inpt_stack = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail','pchoice'])[
+            'choice_congruent'].value_counts(
+            normalize=True).unstack('choice_congruent').reset_index()
+    inpt_stack_all = \
+        data.loc[(data.stim < .6) & (data.stim > -.6)].groupby(['binned_freq', 'pfail'])[
+            'choice'].value_counts(
+            normalize=True).unstack('choice').reset_index()
+    g = sns.FacetGrid(inpt_stack, hue="pfail",col='pchoice', height=3.5, aspect=.85)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=1);
+    # g.set(ylim=(0, 1));
+    axes = g.axes.flatten()
+    # iterate through the axes
+    for i, ax in enumerate(axes):
+        # ax.axhline(0.5, ls='--', c='black', linewidth=0.2)
+        ax.axvline(0, ls='--', c='black', linewidth=0.2)
+        # sns.lineplot(data=inpt_stack_all.loc[inpt_stack_all.pfail==i], x='binned_freq',y=0,color='k',ax=ax,legend=False)
+    g.set_axis_labels("Distance from threshold", "P(Repeat)");
+    plt.legend(title=hue_plot)
+    g.tight_layout();
+    plt.show();
+    g.savefig(save_folder + '/all_psych_choicecong_pfail_pchoice.png', format='png', bbox_inches="tight")
+
+    data['choice_trans'] = data['lick_side_freq'].copy()
+    data.loc[data.choice_trans==0, 'choice_trans'] = -1
+    data['choice_congruent'] = (np.array(data['choice_trans']) == np.array(data['prev_choice'])).astype('int')
+    data.loc[data.sound_index==0,'sound_index'] = -1
+    data['repeating_stim_evidence'] = data.prev_choice*data.sound_index
+    data['repeating_stim_evidence'] = data.repeating_stim_evidence*data.freq_trans
+    data['binned_freq_repeating'] = pd.cut(data['repeating_stim_evidence'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+
+
+    data['z_binned_freq'] = pd.cut(data['z_freq_trans'], bins=bin_lst, labels=[str(x) for x in bin_name],
+                                   include_lowest=True)
+    inpt_stack = \
+        data.groupby(['mouse_id', 'binned_freq', 'prev_failure', 'prev_choice'])[
+            'lick_side_freq'].value_counts(
+            normalize=True).unstack('lick_side_freq').reset_index()
+    g = sns.FacetGrid(inpt_stack, col="prev_failure", hue='prev_choice', height=3.5, aspect=.85)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0);
+    g.map_dataframe(sns.scatterplot, x='binned_freq', y=0, s=10, legend=False);
+    axes = g.axes.flatten()
+    for i, ax in enumerate(axes):
+        ax.set_ylim([0, 1]);
+        ax.set_xlim([-.7, .7])
+        ax.axhline(0.5, ls='--', c='black', linewidth=0.2)
+        ax.axvline(0, ls='--', c='black', linewidth=0.2)
+    plt.show()
 # TODO:
 # figure out state transition dynamics
 # https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011430
