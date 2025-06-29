@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # root_folder_dir = str(sys.argv[1])
     root_folder_dir = '/home/anh/Documents/phd'
 
-    root_folder_name = 'om_choice'
+    root_folder_name = 'om_choice_nopfail'
     root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
     root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
     # root_data_dir = Path('../../data')
@@ -104,7 +104,8 @@ if __name__ == '__main__':
     if root_folder_name == 'om_accuracy':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
     else:
-        labels_for_plot = ['prev-fail','stim', 'stim:prev-fail', 'prev-choice', 'bias']
+        # labels_for_plot = ['prev-fail','stim', 'stim:prev-fail', 'prev-choice', 'bias']
+        labels_for_plot = ['stim', 'stim-identity', 'prev-choice', 'bias']
 
     animal_file_name = 'all_animals_concat.npz'
     animal_file = data_dir / animal_file_name

@@ -30,7 +30,7 @@ transition_alpha = [2]
 K_vals = [2, 3, 4, 5]
 N_em_iters = 300  # number of EM iterations
 n_processes = 15
-multiprocess_option=0
+multiprocess_option=1
 
 # post processing individual glmhmm fit
 D = 1  # number of output dimensions
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     # root_folder_dir = str(sys.argv[1])
     root_folder_dir = '/home/anh/Documents/phd'
 
-    root_folder_name = 'om_choice'
+    root_folder_name = 'om_choice_nopfail'
     root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
     root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
     global_data_dir = root_data_dir /  (root_folder_name + '_data_for_cluster')
@@ -99,58 +99,58 @@ if __name__ == '__main__':
     if root_folder_name == 'om_accuracy':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
     else:
-        labels_for_plot = ['prev-fail', 'stim', 'stim:prev-fail', 'prev-choice','bias']
+        # labels_for_plot = ['prev-fail','stim', 'stim:prev-fail', 'prev-choice', 'bias']
+        labels_for_plot = ['stim', 'stim-identity', 'prev-choice', 'bias']
 
+    for animal in animal_list:
+        # Fit GLM to data from single animal:
+        animal_file = data_dir / (animal + processed_file_name)
+        session_fold_lookup_table = load_session_fold_lookup(
+            data_dir / (animal + session_lookup_name))
 
-    # for animal in animal_list:
-    #     # Fit GLM to data from single animal:
-    #     animal_file = data_dir / (animal + processed_file_name)
-    #     session_fold_lookup_table = load_session_fold_lookup(
-    #         data_dir / (animal + session_lookup_name))
-    #
-    #     for fold in range(num_folds):
-    #         this_results_dir = results_dir / animal
-    #
-    #         # Load data
-    #         inpt, y, session = load_data(animal_file)
-    #
-    #         figure_directory = this_results_dir / "GLM" / ("fold_" + str(fold))
-    #         if not os.path.exists(figure_directory):
-    #             os.makedirs(figure_directory)
-    #
-    #         # Subset to sessions of interest for fold
-    #         sessions_to_keep = session_fold_lookup_table[np.where(
-    #             session_fold_lookup_table[:, 1] != fold), 0]
-    #         idx_this_fold = [
-    #             str(sess) in sessions_to_keep and y[id, 0] != -1
-    #             for id, sess in enumerate(session)
-    #         ]
-    #         this_inpt, this_y, this_session = inpt[idx_this_fold, :], \
-    #                                           y[idx_this_fold, :], \
-    #                                           session[idx_this_fold]
-    #         assert len(
-    #             np.unique(this_y)
-    #         ) == 2, "choice vector should only include 2 possible values"
-    #         train_size = this_inpt.shape[0]
-    #
-    #         M = this_inpt.shape[1]
-    #         loglikelihood_train_vector = []
-    #
-    #         for iter in range(N_initializations):
-    #             loglikelihood_train, recovered_weights = fit_glm([this_inpt],
-    #                                                              [this_y], M,
-    #                                                              C)
-    #             weights_for_plotting = append_zeros(recovered_weights)
-    #             plot_input_vectors(weights_for_plotting,
-    #                                figure_directory,
-    #                                title="GLM fit; Final LL = " +
-    #                                str(loglikelihood_train),
-    #                                save_title='init' + str(iter),
-    #                                labels_for_plot=labels_for_plot)
-    #             loglikelihood_train_vector.append(loglikelihood_train)
-    #             np.savez(
-    #                 figure_directory / ('variables_of_interest_iter_' +
-    #                 str(iter) + '.npz'), loglikelihood_train, recovered_weights)
+        for fold in range(num_folds):
+            this_results_dir = results_dir / animal
+
+            # Load data
+            inpt, y, session = load_data(animal_file)
+
+            figure_directory = this_results_dir / "GLM" / ("fold_" + str(fold))
+            if not os.path.exists(figure_directory):
+                os.makedirs(figure_directory)
+
+            # Subset to sessions of interest for fold
+            sessions_to_keep = session_fold_lookup_table[np.where(
+                session_fold_lookup_table[:, 1] != fold), 0]
+            idx_this_fold = [
+                str(sess) in sessions_to_keep and y[id, 0] != -1
+                for id, sess in enumerate(session)
+            ]
+            this_inpt, this_y, this_session = inpt[idx_this_fold, :], \
+                                              y[idx_this_fold, :], \
+                                              session[idx_this_fold]
+            assert len(
+                np.unique(this_y)
+            ) == 2, "choice vector should only include 2 possible values"
+            train_size = this_inpt.shape[0]
+
+            M = this_inpt.shape[1]
+            loglikelihood_train_vector = []
+
+            for iter in range(N_initializations):
+                loglikelihood_train, recovered_weights = fit_glm([this_inpt],
+                                                                 [this_y], M,
+                                                                 C)
+                weights_for_plotting = append_zeros(recovered_weights)
+                plot_input_vectors(weights_for_plotting,
+                                   figure_directory,
+                                   title="GLM fit; Final LL = " +
+                                   str(loglikelihood_train),
+                                   save_title='init' + str(iter),
+                                   labels_for_plot=labels_for_plot)
+                loglikelihood_train_vector.append(loglikelihood_train)
+                np.savez(
+                    figure_directory / ('variables_of_interest_iter_' +
+                    str(iter) + '.npz'), loglikelihood_train, recovered_weights)
     #
 
     ###################################################################################

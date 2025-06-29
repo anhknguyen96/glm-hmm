@@ -15,7 +15,9 @@ if __name__ == '__main__':
     #     exit()
     # root_folder_dir = str(sys.argv[1])
     root_folder_dir = '/home/anh/Documents/phd'
-    root_folder_name = 'om_choice'
+    # root_folder_name = 'om_choice'
+    pfail = 0
+    root_folder_name = 'om_choice_nopfail'              # another glm0h
     root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
     root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
     data_dir = root_data_dir / (root_folder_name + '_data_for_cluster')
@@ -39,6 +41,11 @@ if __name__ == '__main__':
     om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
     om_cleaned['z_freq_trans'] = om_cleaned['freq_trans'].copy()
     om_cleaned['z_prev_choice'] = om_cleaned['prev_choice'].copy()
+    om_cleaned['sound_index_transformed'] = om_cleaned['sound_index'].copy()
+    # high sounds from 0 to 1, low sounds from 1 to -1
+    om_cleaned.loc[om_cleaned.sound_index == 1, 'sound_index_transformed'] = -1
+    om_cleaned.loc[om_cleaned.sound_index == 0, 'sound_index_transformed'] = 1
+    om_cleaned['z_sound_index'] = om_cleaned['sound_index_transformed'].copy()
     for session_no in om_cleaned.session_identifier.unique():
         # get indices of trials in the session
         session_no_index = list(index[(om_cleaned['session_no'] == session_no)])
@@ -47,8 +54,11 @@ if __name__ == '__main__':
             om_cleaned.loc[session_no_index, 'freq_trans'])
         om_cleaned.loc[session_no_index, 'z_prev_choice'] = scipy.stats.zscore(
             om_cleaned.loc[session_no_index, 'prev_choice'])
+        om_cleaned.loc[session_no_index, 'z_sound_index'] = scipy.stats.zscore(
+            om_cleaned.loc[session_no_index, 'sound_index_transformed'])
     # save for other processes
     om_cleaned.to_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
+
     # to create a dict of mice
     animal_df = om_cleaned[['mouse_id','session_identifier']].copy()
     animal_df = animal_df.drop_duplicates(subset=['session_identifier'])
@@ -66,8 +76,12 @@ if __name__ == '__main__':
         formula = 'success ~ -1 + z_freq + C(prev_failure)'
         formula_unnormalized = 'success ~ -1 + abs_freq + C(prev_failure)'
     else:
-        formula = 'lick_side_freq ~ -1 + z_freq_trans + C(prev_failure) + z_freq_trans:C(prev_failure) + z_prev_choice'
-        formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + C(prev_failure) + freq_trans:C(prev_failure) + z_prev_choice'
+        if pfail:
+            formula = 'lick_side_freq ~ -1 + z_freq_trans + C(prev_failure) + z_freq_trans:C(prev_failure) + z_prev_choice'
+            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + C(prev_failure) + freq_trans:C(prev_failure) + z_prev_choice'
+        else:
+            formula = 'lick_side_freq ~ -1 + z_freq_trans + z_sound_index + z_prev_choice'
+            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + z_sound_index + z_prev_choice'
     for mouse_index in range(len(animal_list)):
         # subselect and clean data based on mouse id
         om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == animal_list[mouse_index]].copy().reset_index()
@@ -76,13 +90,13 @@ if __name__ == '__main__':
         outcome, predictors = dmatrices(formula, om_tmp, return_type='dataframe')
         print(predictors.columns)
         # skip the first column because it is pfail 0
-        get_col = predictors.columns[1:].to_list()
+        get_col = predictors.columns[pfail:].to_list()
         design_mat = np.asarray(predictors[get_col])
         # create predictor matrix from formula using patsy - unnormalized predictors
         _, predictors_unnorm = dmatrices(formula_unnormalized, om_tmp, return_type='dataframe')
         print(predictors_unnorm.columns)
         # skip the first column because it is pfail 0
-        get_col_unnorm = predictors_unnorm.columns[1:].to_list()
+        get_col_unnorm = predictors_unnorm.columns[pfail:].to_list()
         design_mat_unnorm = np.asarray(predictors_unnorm[get_col_unnorm])
 
         y = np.asarray(outcome).astype('int')         # assertion error in ssm stats
