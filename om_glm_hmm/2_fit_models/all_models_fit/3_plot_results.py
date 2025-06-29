@@ -25,7 +25,7 @@ def sigmoid(x, L ,x0, k, b):
 # individual glmhmm are initialized by permuted global glmhmm weights, so there needs not be permutation params for plotting
 # if matching between indiv and global glmhmm weights is desired, permutation needs to be passed when calling global glmhmm
 K_max = 5
-root_folder_dir = '/home/anh/Documents'
+root_folder_dir = '/home/anh/Documents/phd'
 pfail = 0
 if pfail == 1:
     root_folder_name = 'om_choice'
@@ -59,18 +59,19 @@ cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
         '#999999', '#e41a1c', '#dede00'
     ]
 
-trouble_animals =['23.0','24.0','26.0']
+# trouble_animals =['23.0','24.0','26.0']
+trouble_animals =[]
 animal_list = list(set(animal_list)-set(trouble_animals))
 
 # flag for running all_animals analysis
-all_animals = 0
+all_animals = 1
 # flag for running individual animals analysis
-individual_animals = 0
+individual_animals = 1
 # flag for running k-state glm fit check
 glm_fit_check = 1
-sim_data = 0
+sim_data = 1
 # flag for predictive accuracy plot
-pred_acc_plot = 0
+pred_acc_plot = 1
 pred_acc_plot_multialpha = 0
 # flag for one animal
 one_animal = 0
@@ -116,7 +117,7 @@ if pred_acc_plot_multialpha:
     delta_pd = pd.melt(delta_pd, id_vars=['animal_id','K-state'], value_vars=['lower', 'higher'], var_name='delta_alpha', value_name='delta_LL')
     # delta_pd['delta_LL'] = delta_pd['delta_LL'].round(2)
     sns.swarmplot(data=delta_pd, x='K-state', y='delta_LL', hue='delta_alpha', dodge=True,ax=ax); plt.tight_layout()
-    fig.savefig(save_folder / 'fig4_a' + 'delta_K_' + str(K_plot) + '_all.png', format='png', bbox_inches="tight")
+    fig.savefig(save_folder / ('fig4_a' + 'delta_K_' + str(K_plot) + '_all.png'), format='png', bbox_inches="tight")
     plt.show()
     # plt.show()
 
@@ -184,7 +185,7 @@ if pred_acc_plot:
                      markerscale=0)
     for legobj in leg.legendHandles:
         legobj.set_linewidth(1.0)
-    fig.savefig(save_folder / 'fig4_a'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
+    fig.savefig(save_folder / ('fig4_a'+'K_'+str(K_plot)+'_all.png'),format='png', bbox_inches="tight")
     # =========== PRED ACC =========================
     # plt.subplot(3, 3, 2)
     fig, ax = plt.subplots(figsize=(3, 3))
@@ -237,7 +238,7 @@ if pred_acc_plot:
     plt.yticks([0, 0.05, 0.1], ["0", "5%", '10%'])
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig(save_folder / 'fig4_b'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
+    fig.savefig(save_folder / ('fig4_b'+'K_'+str(K_plot)+'_all.png'),format='png', bbox_inches="tight")
 
 ##################### K-STATE GLM FIT CHECK ########################################
 ##################### SIMULATE VEC #################################################
@@ -361,7 +362,7 @@ if glm_fit_check:
                 ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
             plt.tight_layout()
             plt.show()
-            fig.savefig(save_folder / 'all_K'+ str(K) + '_glmhmm_modelcheck.png',format='png',bbox_inches = "tight")
+            fig.savefig(save_folder / ('all_K'+ str(K) + '_glmhmm_modelcheck.png'),format='png',bbox_inches = "tight")
     # plot psychometrics of real data
     else:
 
@@ -539,7 +540,7 @@ if glm_fit_check:
                 ax[1, k_ind].axvline(0, linewidth=0.5, linestyle='--')
             plt.tight_layout()
             plt.show()
-            fig.savefig(save_folder / 'all_K' + str(K) + '_glmhmm_modelcheck_realdata.png', format='png', bbox_inches="tight")
+            fig.savefig(save_folder / ('all_K' + str(K) + '_glmhmm_modelcheck_realdata.png'), format='png', bbox_inches="tight")
             del inpt_data_all
 
 
@@ -726,7 +727,7 @@ if all_animals:
         fig.suptitle('Generative vs recovered models', fontsize=15, y=0.98)
         fig.subplots_adjust(top=0.85);
         plt.show()
-        fig.savefig(save_folder / 'global_K' + str(K) + '_simulated_data_model_fit.png', format='png',
+        fig.savefig(save_folder / ('global_K' + str(K) + '_simulated_data_model_fit.png'), format='png',
                     bbox_inches="tight")
 
         ##################### PSYCHOMETRIC CURVES ##########################################
@@ -776,7 +777,7 @@ if all_animals:
                 ax[1, ax_ind].legend(handles, labels, loc='lower right')
         fig.suptitle('All animals')
         plt.tight_layout()
-        fig.savefig(save_folder / 'global_K' + str(K) + '_glmhmm_modelsimulations.png', format='png', bbox_inches="tight")
+        fig.savefig(save_folder / ('global_K' + str(K) + '_glmhmm_modelsimulations.png'), format='png', bbox_inches="tight")
         plt.show()
 
 ######################################################################################
@@ -968,7 +969,7 @@ if individual_animals:
             plt.xlabel("state t+1", fontsize = 12)
             fig.suptitle('Generative vs recovered models - animal ' + animal,fontsize=15,y=0.98)
             fig.subplots_adjust(top=0.85);plt.show()
-            fig.savefig(save_folder / animal +'_K'+ str(K)+'_simulated_data_model_fit'+'.png',format='png',bbox_inches = "tight")
+            fig.savefig(save_folder / (animal +'_K'+ str(K)+'_simulated_data_model_fit'+'.png'),format='png',bbox_inches = "tight")
 
             ##################### PSYCHOMETRIC CURVES ##########################################
             # since min/max freq_trans is -1.5/1.5
@@ -1028,7 +1029,7 @@ if individual_animals:
                     ax[1, ax_ind].legend(handles, labels,loc='lower right')
             fig.suptitle('Animal '+ animal,fontsize=15,y=.98)
             fig.subplots_adjust(top=0.9, hspace=0.4);plt.show()
-            fig.savefig(save_folder / animal +'_K'+ str(K) + '_weights_psychometrics' + animal +'_testperm.png',format='png',bbox_inches = "tight")
+            fig.savefig(save_folder / (animal +'_K'+ str(K) + '_weights_psychometrics' + animal +'_testperm.png'),format='png',bbox_inches = "tight")
 
 ##############################################################################################
 ##################### PLOT POSTERIOR PROBS (ANIMAL SPECIFIC) #################################
