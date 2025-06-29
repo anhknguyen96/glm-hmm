@@ -26,7 +26,18 @@ def sigmoid(x, L ,x0, k, b):
 # if matching between indiv and global glmhmm weights is desired, permutation needs to be passed when calling global glmhmm
 K_max = 5
 root_folder_dir = '/home/anh/Documents'
-root_folder_name = 'om_choice'
+pfail = 0
+if pfail == 1:
+    root_folder_name = 'om_choice'
+    # list of columns/predictors name as ordered by pansy
+    labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice', 'bias']
+else:
+    root_folder_name = 'om_choice_nopfail'
+    # list of columns/predictors name as ordered by pansy
+    labels_for_plot = ['stim', 'stim-identity', 'pchoice', 'bias']
+save_folder = Path(root_folder_dir) / root_folder_name / 'plots'
+if not os.path.exists(save_folder):
+    os.makedirs(save_folder)
 root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
 root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
 root_result_1_dir = Path(root_folder_dir) / root_folder_name / 'result_transitionalpha_1-2'
@@ -39,8 +50,7 @@ results_dir_individual = root_result_dir/ (root_folder_name + '_individual_fit')
 results_dir_1_individual = root_result_1_dir / (root_folder_name + '_individual_fit')
 results_dir_3_individual = root_result_3_dir / (root_folder_name + '_individual_fit')
 animal_list = load_animal_list(data_individual / 'animal_list.npz')
-# list of columns/predictors name as ordered by pansy
-labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
+
 # first index for all animals
 n_session_lst = [1,50]              # higher n sessions (>=60) seems to yield poorer fit??
 n_trials_lst = [5000,250]
@@ -106,7 +116,7 @@ if pred_acc_plot_multialpha:
     delta_pd = pd.melt(delta_pd, id_vars=['animal_id','K-state'], value_vars=['lower', 'higher'], var_name='delta_alpha', value_name='delta_LL')
     # delta_pd['delta_LL'] = delta_pd['delta_LL'].round(2)
     sns.swarmplot(data=delta_pd, x='K-state', y='delta_LL', hue='delta_alpha', dodge=True,ax=ax); plt.tight_layout()
-    fig.savefig('plots/fig4_a' + 'delta_K_' + str(K_plot) + '_all.png', format='png', bbox_inches="tight")
+    fig.savefig(save_folder / 'fig4_a' + 'delta_K_' + str(K_plot) + '_all.png', format='png', bbox_inches="tight")
     plt.show()
     # plt.show()
 
@@ -174,7 +184,7 @@ if pred_acc_plot:
                      markerscale=0)
     for legobj in leg.legendHandles:
         legobj.set_linewidth(1.0)
-    fig.savefig('plots/fig4_a'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
+    fig.savefig(save_folder / 'fig4_a'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
     # =========== PRED ACC =========================
     # plt.subplot(3, 3, 2)
     fig, ax = plt.subplots(figsize=(3, 3))
@@ -227,7 +237,7 @@ if pred_acc_plot:
     plt.yticks([0, 0.05, 0.1], ["0", "5%", '10%'])
     plt.gca().spines['right'].set_visible(False)
     plt.gca().spines['top'].set_visible(False)
-    fig.savefig('plots/fig4_b'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
+    fig.savefig(save_folder / 'fig4_b'+'K_'+str(K_plot)+'_all.png',format='png', bbox_inches="tight")
 
 ##################### K-STATE GLM FIT CHECK ########################################
 ##################### SIMULATE VEC #################################################
@@ -260,7 +270,7 @@ if glm_fit_check:
             # iterate over k-state to simulate glm data
             for k_ind in range(K):
                 # simulate input array and choice
-                inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(global_weight_vectors[k_ind,:,:]),n_trials,z_stim_sim)
+                inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(global_weight_vectors[k_ind,:,:]),n_trials,z_stim_sim,stim_vec_sim,pfail)
                 # add original simulated stim vec
                 inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1,1), axis=1)
                 # add state info
@@ -294,7 +304,7 @@ if glm_fit_check:
 
                     # # simulate input array and choice
                     inpt_sim_tmp = simulate_from_weights_pfailpchoice_model(np.squeeze(weight_vectors[k_ind, :, :]), n_trials,
-                                                                            z_stim_sim)
+                                                                            z_stim_sim,stim_vec_sim,pfail)
                     # add original simulated stim vec
                     inpt_sim_tmp = np.append(inpt_sim_tmp, np.array(stim_vec_sim[:-1]).reshape(-1, 1), axis=1)
                     # add state info
@@ -351,7 +361,7 @@ if glm_fit_check:
                 ax[1, k_ind].axvline(6, linewidth=0.5, linestyle='--')
             plt.tight_layout()
             plt.show()
-            fig.savefig('plots/all_K'+ str(K) + '_glmhmm_modelcheck.png',format='png',bbox_inches = "tight")
+            fig.savefig(save_folder / 'all_K'+ str(K) + '_glmhmm_modelcheck.png',format='png',bbox_inches = "tight")
     # plot psychometrics of real data
     else:
 
@@ -529,7 +539,7 @@ if glm_fit_check:
                 ax[1, k_ind].axvline(0, linewidth=0.5, linestyle='--')
             plt.tight_layout()
             plt.show()
-            fig.savefig('plots/all_K' + str(K) + '_glmhmm_modelcheck_realdata.png', format='png', bbox_inches="tight")
+            fig.savefig(save_folder / 'all_K' + str(K) + '_glmhmm_modelcheck_realdata.png', format='png', bbox_inches="tight")
             del inpt_data_all
 
 
@@ -606,7 +616,7 @@ if all_animals:
             # z score stim vec
             z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
             # simulate data
-            glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim)
+            glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim,stim_vec_sim,pfail)
             # append list for model fit and recovery
             glmhmm_inpt_lst.append(glmhmm_inpt)
             glmhmm_y_lst.append(glmhmm_y)
@@ -651,7 +661,7 @@ if all_animals:
             z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
             # simulate data
             glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(
-                recovered_glmhmm, n_trials, z_stim_sim)
+                recovered_glmhmm, n_trials, z_stim_sim,stim_vec_sim,pfail)
             # append list for model fit and recovery
             glmhmm_inpt_recv_lst.append(glmhmm_inpt)
             glmhmm_y_recv_lst.append(glmhmm_y)
@@ -716,7 +726,7 @@ if all_animals:
         fig.suptitle('Generative vs recovered models', fontsize=15, y=0.98)
         fig.subplots_adjust(top=0.85);
         plt.show()
-        fig.savefig('plots/'+ 'global_K' + str(K) + '_simulated_data_model_fit.png', format='png',
+        fig.savefig(save_folder / 'global_K' + str(K) + '_simulated_data_model_fit.png', format='png',
                     bbox_inches="tight")
 
         ##################### PSYCHOMETRIC CURVES ##########################################
@@ -766,16 +776,15 @@ if all_animals:
                 ax[1, ax_ind].legend(handles, labels, loc='lower right')
         fig.suptitle('All animals')
         plt.tight_layout()
-        fig.savefig('plots/global_K' + str(K) + '_glmhmm_modelsimulations.png', format='png', bbox_inches="tight")
+        fig.savefig(save_folder / 'global_K' + str(K) + '_glmhmm_modelsimulations.png', format='png', bbox_inches="tight")
         plt.show()
 
 ######################################################################################
 ##################### INDIVIDUAL ANIMAL ##############################################
 ##################### LOAD DATA ######################################################
 if individual_animals:
-    animal_lst= [17.0,27.0,12.0]
     animal_lst = [str(x) for x in animal_list]
-    for K in [3]:
+    for K in range(2,K_max+1):
         n_session = n_session_lst[-1]
         n_trials = n_trials_lst[-1]
         for animal in animal_lst:
@@ -849,7 +858,7 @@ if individual_animals:
                 z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
                 # simulate data
                 glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome,\
-                    glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim)
+                    glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(data_hmm,n_trials,z_stim_sim,stim_vec_sim,pfail)
                 # append list for model fit and recovery
                 glmhmm_inpt_lst.append(glmhmm_inpt)
                 glmhmm_y_lst.append(glmhmm_y)
@@ -895,7 +904,7 @@ if individual_animals:
                 z_stim_sim = (stim_vec_sim - np.mean(stim_vec_sim)) / np.std(stim_vec_sim)
                 # simulate data
                 glmhmm_inpt, glmhmm_y, glmhmm_choice, glmhmm_outcome, glmhmm_state_arr = simulate_from_glmhmm_pfailpchoice_model(
-                    recovered_glmhmm, n_trials, z_stim_sim)
+                    recovered_glmhmm, n_trials, z_stim_sim,stim_vec_sim,pfail)
                 # append list for model fit and recovery
                 glmhmm_inpt_recv_lst.append(glmhmm_inpt)
                 glmhmm_y_recv_lst.append(glmhmm_y)
@@ -959,7 +968,7 @@ if individual_animals:
             plt.xlabel("state t+1", fontsize = 12)
             fig.suptitle('Generative vs recovered models - animal ' + animal,fontsize=15,y=0.98)
             fig.subplots_adjust(top=0.85);plt.show()
-            fig.savefig('plots/' + animal +'_K'+ str(K)+'_simulated_data_model_fit'+'.png',format='png',bbox_inches = "tight")
+            fig.savefig(save_folder / animal +'_K'+ str(K)+'_simulated_data_model_fit'+'.png',format='png',bbox_inches = "tight")
 
             ##################### PSYCHOMETRIC CURVES ##########################################
             # since min/max freq_trans is -1.5/1.5
@@ -1019,7 +1028,7 @@ if individual_animals:
                     ax[1, ax_ind].legend(handles, labels,loc='lower right')
             fig.suptitle('Animal '+ animal,fontsize=15,y=.98)
             fig.subplots_adjust(top=0.9, hspace=0.4);plt.show()
-            fig.savefig('plots/' + animal +'_K'+ str(K) + '_weights_psychometrics' + animal +'_testperm.png',format='png',bbox_inches = "tight")
+            fig.savefig(save_folder / animal +'_K'+ str(K) + '_weights_psychometrics' + animal +'_testperm.png',format='png',bbox_inches = "tight")
 
 ##############################################################################################
 ##################### PLOT POSTERIOR PROBS (ANIMAL SPECIFIC) #################################
@@ -1089,7 +1098,7 @@ if one_animal:
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles, labels, loc='lower right'); sns.despine(fig,top=True,right=True)
         fig.suptitle('State change dynamics ' + animal); plt.tight_layout()
-        fig.savefig('plots/' + animal + '_state_changedynamics_K' + str(K) + 'averagedsess.png', format='png', bbox_inches="tight")
+        fig.savefig(save_folder / animal + '_state_changedynamics_K' + str(K) + 'averagedsess.png', format='png', bbox_inches="tight")
 
         #
         # sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
@@ -1455,7 +1464,7 @@ if exploratory_plot:
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    # data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_glmm_choice_pred.csv')
+    data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_glmm_choice_pred.csv')
     data = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/om_state_info.csv')
 
     # to segregate RTs?
@@ -1694,12 +1703,15 @@ if exploratory_plot:
 
     data['choice_trans'] = data['lick_side_freq'].copy()
     data.loc[data.choice_trans==0, 'choice_trans'] = -1
-    data['choice_congruent'] = (np.array(data['choice_trans']) == np.array(data['prev_choice'])).astype('int')
-    data.loc[data.sound_index==0,'sound_index'] = -1
-    data['repeating_stim_evidence'] = data.prev_choice*data.sound_index
-    data['repeating_stim_evidence'] = data.repeating_stim_evidence*data.freq_trans
-    data['binned_freq_repeating'] = pd.cut(data['repeating_stim_evidence'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
 
+    data['choice_congruent'] = data.choice_trans*data.prev_choice
+    data.loc[data.sound_index==0,'sound_index'] = -1
+    data['repeating_stim_evidence_raw'] = data.prev_choice*data.sound_index
+    data['repeating_stim_evidence'] = data.repeating_stim_evidence_raw*data.abs_freq
+    data['binned_freq_repeating'] = pd.cut(data['repeating_stim_evidence'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
+    data['d_freqs'] = data['abs_freq'] - abs(data['prev_freq_trans'])
+    data['repeating_stim_evidence_d'] = data.repeating_stim_evidence_raw*data.d_freqs
+    data['binned_freq_repeating_d']= pd.cut(data['repeating_stim_evidence_d'], bins=bin_lst, labels= [str(x) for x in bin_name], include_lowest=True)
 
     data['z_binned_freq'] = pd.cut(data['z_freq_trans'], bins=bin_lst, labels=[str(x) for x in bin_name],
                                    include_lowest=True)

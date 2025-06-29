@@ -66,11 +66,13 @@ def simulate_wsls_agents(wsls_weight_vectors,n_trials,z_stim):
     return inpt_arr
 
 
-def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
+def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim, stim_org,pfail_model):
     """
     weight_vectors: list of sets of weights from glmhmm states
     n_trials: number of desired simulated trials
     z-stim: z-scored stim vec
+    stim_org: original stim to get stim_identity
+    pfail_model: whether there is pfail weight in this model or not
     """
     # choice array
     y = []
@@ -81,7 +83,10 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
         if i ==0:
             pchoice = 1
             pfail = 1
-            inpt_arr = np.array([pfail, z_stim[i], z_stim[i]*pfail, pchoice, 1]).reshape(1,-1)
+            if pfail_model == 1:
+                inpt_arr = np.array([pfail, z_stim[i], z_stim[i]*pfail, pchoice, 1]).reshape(1,-1)
+            else:
+                inpt_arr = np.array([z_stim[i], np.sign(stim_org[i]), pchoice, 1]).reshape(1, -1)
         # get probability
         pi = np.exp(np.dot(weight_vectors,inpt_arr[-1,:])) / (1 + np.exp(np.dot(weight_vectors,inpt_arr[-1,:])))
         # get choice from rbinom
@@ -99,7 +104,11 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
         # get outcome array
         outcome.append(outcome_sim)
         # get array for the next trial
-        inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i+1], z_stim[i+1]*pfail, pchoice, 1]).reshape(1,-1)))
+        if pfail_model == 1:
+            inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1]*pfail, pchoice, 1]).reshape(1,-1)))
+        else:
+            inpt_arr = np.vstack(
+                (inpt_arr, np.array([z_stim[i + 1], np.sign(stim_org[i + 1]), pchoice, 1]).reshape(1, -1)))
     # remove last row
     inpt_arr = inpt_arr[:-1,:]
     # add choice array
@@ -107,7 +116,7 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim):
     inpt_arr = np.append(inpt_arr, np.array(outcome).reshape(-1, 1), axis=1)
     return inpt_arr
 
-def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
+def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim,stim_org,pfail_model):
 
     # choice array
     y = []
@@ -122,7 +131,10 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
         if i == 0:
             pchoice = 1
             pfail = 1
-            inpt_arr = np.array([pfail, z_stim[i], z_stim[i] * pfail, pchoice, 1]).reshape(1, -1)
+            if pfail_model == 1:
+                inpt_arr = np.array([pfail, z_stim[i], z_stim[i] * pfail, pchoice, 1]).reshape(1, -1)
+            else:
+                inpt_arr = np.array([z_stim[i], np.sign(stim_org[i]), pchoice, 1]).reshape(1, -1)
             # sample data from glm-hmm model
             true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:].reshape(1,-1))
             true_z_past = true_z
@@ -149,8 +161,11 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim):
         # get outcome array
         outcome.append(outcome_sim)
         # get array for the next trial
-        inpt_arr = np.vstack(
-            (inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1] * pfail, pchoice, 1]).reshape(1, -1)))
+        if pfail_model == 1:
+            inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1]*pfail, pchoice, 1]).reshape(1,-1)))
+        else:
+            inpt_arr = np.vstack(
+                (inpt_arr, np.array([z_stim[i + 1], np.sign(stim_org[i + 1]), pchoice, 1]).reshape(1, -1)))
         # remove last row
     inpt_arr = inpt_arr[:-1, :]
     # reshape to fit data structure assumption in ssm package
