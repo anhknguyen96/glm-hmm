@@ -41,29 +41,52 @@ if __name__ == '__main__':
     om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
     om_cleaned['z_freq_trans'] = om_cleaned['freq_trans'].copy()
     om_cleaned['z_prev_choice'] = om_cleaned['prev_choice'].copy()
-    om_cleaned['sound_index_transformed'] = om_cleaned['sound_index'].copy()
-    # high sounds from 0 to 1, low sounds from 1 to -1
-    om_cleaned.loc[om_cleaned.sound_index == 1, 'sound_index_transformed'] = -1
-    om_cleaned.loc[om_cleaned.sound_index == 0, 'sound_index_transformed'] = 1
-    om_cleaned['z_sound_index'] = om_cleaned['sound_index_transformed'].copy()
+    om_cleaned['z_prev_failure'] = om_cleaned['prev_failure'].copy()
+    # also discard sess that have less than 50 trials
+    om_cleaned_session = pd.DataFrame()
     for session_no in om_cleaned.session_identifier.unique():
         # get indices of trials in the session
-        session_no_index = list(index[(om_cleaned['session_no'] == session_no)])
+        session_no_index = list(index[(om_cleaned['session_identifier'] == session_no)])
+        if len(session_no_index) <= 50:
+            print(session_no)
+            continue
         # z score predictors on a session basis
         om_cleaned.loc[session_no_index, 'z_freq_trans'] = scipy.stats.zscore(
             om_cleaned.loc[session_no_index, 'freq_trans'])
+        median_sess = om_cleaned.loc[session_no_index, 'z_freq_trans'].median()
+        # inplace does not work with df slices!!
+        om_cleaned.loc[session_no_index, 'z_freq_trans'] = om_cleaned.loc[
+            session_no_index, 'z_freq_trans'].fillna(median_sess)
+
         om_cleaned.loc[session_no_index, 'z_prev_choice'] = scipy.stats.zscore(
             om_cleaned.loc[session_no_index, 'prev_choice'])
-        om_cleaned.loc[session_no_index, 'z_sound_index'] = scipy.stats.zscore(
-            om_cleaned.loc[session_no_index, 'sound_index_transformed'])
+        median_sess = om_cleaned.loc[session_no_index, 'z_prev_choice'].median()
+        # inplace does not work with df slices!!
+        om_cleaned.loc[session_no_index, 'z_prev_choice'] = om_cleaned.loc[
+            session_no_index, 'z_prev_choice'].fillna(median_sess)
+
+        om_cleaned.loc[session_no_index, 'z_prev_failure'] = scipy.stats.zscore(
+            om_cleaned.loc[session_no_index, 'prev_failure'])
+        #has to be mean for prev failure because median spits out nan
+        median_sess = om_cleaned.loc[session_no_index, 'z_prev_failure'].mean()
+        # inplace does not work with df slices!!
+        om_cleaned.loc[session_no_index, 'z_prev_failure'] = om_cleaned.loc[
+            session_no_index, 'z_prev_failure'].fillna(median_sess)
+
+        # only get sesssions that have more than 50 trials
+        om_cleaned_session = pd.concat((om_cleaned_session,om_cleaned.loc[om_cleaned.session_identifier == session_no]))
     # save for other processes
-    om_cleaned.to_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
+    om_cleaned_session = om_cleaned_session.reset_index()
+    print(len(om_cleaned))
+    print(len(om_cleaned_session))
+    om_cleaned_session.to_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
+    del om_cleaned, om, data_batch34, data_batch12
 
     # to create a dict of mice
-    animal_df = om_cleaned[['mouse_id','session_identifier']].copy()
+    animal_df = om_cleaned_session[['mouse_id','session_identifier']].copy()
     animal_df = animal_df.drop_duplicates(subset=['session_identifier'])
     animal_eid_dict = animal_df.groupby('mouse_id')['session_identifier'].apply(list).to_dict()
-    animal_list = om_cleaned.mouse_id.unique()
+    animal_list = om_cleaned_session.mouse_id.unique()
     json = json.dumps(animal_eid_dict)
     f = open(data_dir / 'partially_processed' /'animal_eid_dict.json',  "w"); f.write(json); f.close()
     f = open(data_dir / 'data_by_animal' / 'animal_eid_dict.json', "w"); f.write(json); f.close()
@@ -80,11 +103,11 @@ if __name__ == '__main__':
             formula = 'lick_side_freq ~ -1 + z_freq_trans + C(prev_failure) + z_freq_trans:C(prev_failure) + z_prev_choice'
             formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + C(prev_failure) + freq_trans:C(prev_failure) + z_prev_choice'
         else:
-            formula = 'lick_side_freq ~ -1 + z_freq_trans + z_sound_index + z_prev_choice'
-            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + z_sound_index + z_prev_choice'
+            formula = 'lick_side_freq ~ -1 + z_freq_trans + z_prev_choice'
+            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + z_prev_choice'
     for mouse_index in range(len(animal_list)):
         # subselect and clean data based on mouse id
-        om_tmp = om_cleaned.loc[om_cleaned['mouse_id'] == animal_list[mouse_index]].copy().reset_index()
+        om_tmp = om_cleaned_session.loc[om_cleaned_session['mouse_id'] == animal_list[mouse_index]].copy().reset_index()
         T = len(om_tmp)
         # create predictor matrix from formula using patsy
         outcome, predictors = dmatrices(formula, om_tmp, return_type='dataframe')

@@ -100,7 +100,7 @@ if __name__ == '__main__':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
     else:
         # labels_for_plot = ['prev-fail','stim', 'stim:prev-fail', 'prev-choice', 'bias']
-        labels_for_plot = ['stim', 'stim-identity', 'prev-choice', 'bias']
+        labels_for_plot = ['stim', 'prev-choice', 'bias']
 
     for animal in animal_list:
         # Fit GLM to data from single animal:

@@ -105,7 +105,7 @@ if __name__ == '__main__':
         labels_for_plot = ['prev_failure', 'sound_side', 'stim','intercept']
     else:
         # labels_for_plot = ['prev-fail','stim', 'stim:prev-fail', 'prev-choice', 'bias']
-        labels_for_plot = ['stim', 'stim-identity', 'prev-choice', 'bias']
+        labels_for_plot = ['stim', 'prev-choice', 'bias']
 
     animal_file_name = 'all_animals_concat.npz'
     animal_file = data_dir / animal_file_name
