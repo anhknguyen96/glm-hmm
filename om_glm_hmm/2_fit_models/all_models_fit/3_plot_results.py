@@ -34,7 +34,7 @@ if pfail == 1:
 else:
     root_folder_name = 'om_choice_nopfail'
     # list of columns/predictors name as ordered by pansy
-    labels_for_plot = ['stim', 'stim-identity', 'pchoice', 'bias']
+    labels_for_plot = ['stim', 'pchoice', 'bias']
 save_folder = Path(root_folder_dir) / root_folder_name / 'plots'
 if not os.path.exists(save_folder):
     os.makedirs(save_folder)
@@ -69,7 +69,7 @@ all_animals = 1
 individual_animals = 1
 # flag for running k-state glm fit check
 glm_fit_check = 1
-sim_data = 1
+sim_data = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 1
 pred_acc_plot_multialpha = 0
@@ -378,7 +378,7 @@ if glm_fit_check:
 
         # load animal data for simulation
         inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
-        inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
+        inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')calculate_state_permutation
         # create dataframe all animals for plotting
         inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
         global_inpt_data_all = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)

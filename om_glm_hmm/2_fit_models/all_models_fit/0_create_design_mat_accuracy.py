@@ -39,6 +39,8 @@ if __name__ == '__main__':
     index = om_cleaned.index
     om_cleaned['prev_failure'] = om_cleaned['prev_failure'].astype('int')
     om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
+    # for glmhmm, better to not z-score on a session basis -> biased estimation of intercept
+    om_cleaned['glmhmm_freq_trans'] = scipy.stats.zscore(om_cleaned['freq_trans'])
     om_cleaned['z_freq_trans'] = om_cleaned['freq_trans'].copy()
     om_cleaned['z_prev_choice'] = om_cleaned['prev_choice'].copy()
     om_cleaned['z_prev_failure'] = om_cleaned['prev_failure'].copy()
@@ -100,11 +102,11 @@ if __name__ == '__main__':
         formula_unnormalized = 'success ~ -1 + abs_freq + C(prev_failure)'
     else:
         if pfail:
-            formula = 'lick_side_freq ~ -1 + z_freq_trans + C(prev_failure) + z_freq_trans:C(prev_failure) + z_prev_choice'
-            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + C(prev_failure) + freq_trans:C(prev_failure) + z_prev_choice'
+            formula = 'lick_side_freq ~ -1 + glmhmm_freq_trans + C(prev_failure) + z_freq_trans:C(prev_failure) + prev_choice'
+            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + C(prev_failure) + freq_trans:C(prev_failure) + prev_choice'
         else:
-            formula = 'lick_side_freq ~ -1 + z_freq_trans + z_prev_choice'
-            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + z_prev_choice'
+            formula = 'lick_side_freq ~ -1 + glmhmm_freq_trans + prev_choice'
+            formula_unnormalized = 'lick_side_freq ~ -1 + freq_trans + prev_choice'
     for mouse_index in range(len(animal_list)):
         # subselect and clean data based on mouse id
         om_tmp = om_cleaned_session.loc[om_cleaned_session['mouse_id'] == animal_list[mouse_index]].copy().reset_index()

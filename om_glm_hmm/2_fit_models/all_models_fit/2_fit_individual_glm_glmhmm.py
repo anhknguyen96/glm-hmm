@@ -29,7 +29,7 @@ prior_sigma = [2]
 transition_alpha = [2]
 K_vals = [2, 3, 4, 5]
 N_em_iters = 300  # number of EM iterations
-n_processes = 15
+n_processes = 20
 multiprocess_option=1
 
 # post processing individual glmhmm fit

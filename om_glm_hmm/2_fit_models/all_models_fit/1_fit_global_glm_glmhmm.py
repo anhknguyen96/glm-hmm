@@ -30,7 +30,7 @@ N_em_iters = 300  # number of EM iterations
 global_fit = True
 transition_alpha = 1
 prior_sigma = 100
-n_processes = 15  # number of processes for multiprocessing
+n_processes = 20  # number of processes for multiprocessing
 
 # for global glm-hmm post processing
 K_max = 5  # maximum number of latent states
