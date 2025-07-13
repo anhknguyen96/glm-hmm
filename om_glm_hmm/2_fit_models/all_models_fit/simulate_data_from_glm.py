@@ -86,7 +86,7 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim, sti
             if pfail_model == 1:
                 inpt_arr = np.array([pfail, z_stim[i], z_stim[i]*pfail, pchoice, 1]).reshape(1,-1)
             else:
-                inpt_arr = np.array([z_stim[i], np.sign(stim_org[i]), pchoice, 1]).reshape(1, -1)
+                inpt_arr = np.array([stim_org[i], pchoice, 1]).reshape(1, -1)
         # get probability
         pi = np.exp(np.dot(weight_vectors,inpt_arr[-1,:])) / (1 + np.exp(np.dot(weight_vectors,inpt_arr[-1,:])))
         # get choice from rbinom
@@ -108,7 +108,7 @@ def simulate_from_weights_pfailpchoice_model(weight_vectors,n_trials,z_stim, sti
             inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1]*pfail, pchoice, 1]).reshape(1,-1)))
         else:
             inpt_arr = np.vstack(
-                (inpt_arr, np.array([z_stim[i + 1], np.sign(stim_org[i + 1]), pchoice, 1]).reshape(1, -1)))
+                (inpt_arr, np.array([stim_org[i + 1], pchoice, 1]).reshape(1, -1)))
     # remove last row
     inpt_arr = inpt_arr[:-1,:]
     # add choice array
@@ -134,7 +134,7 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim,stim_org,pf
             if pfail_model == 1:
                 inpt_arr = np.array([pfail, z_stim[i], z_stim[i] * pfail, pchoice, 1]).reshape(1, -1)
             else:
-                inpt_arr = np.array([z_stim[i], np.sign(stim_org[i]), pchoice, 1]).reshape(1, -1)
+                inpt_arr = np.array([stim_org[i], pchoice, 1]).reshape(1, -1)
             # sample data from glm-hmm model
             true_z, true_y = this_hmm.sample(T=1, input=inpt_arr[-1,:].reshape(1,-1))
             true_z_past = true_z
@@ -165,7 +165,7 @@ def simulate_from_glmhmm_pfailpchoice_model(this_hmm,n_trials,z_stim,stim_org,pf
             inpt_arr = np.vstack((inpt_arr, np.array([pfail, z_stim[i + 1], z_stim[i + 1]*pfail, pchoice, 1]).reshape(1,-1)))
         else:
             inpt_arr = np.vstack(
-                (inpt_arr, np.array([z_stim[i + 1], np.sign(stim_org[i + 1]), pchoice, 1]).reshape(1, -1)))
+                (inpt_arr, np.array([stim_org[i + 1], pchoice, 1]).reshape(1, -1)))
         # remove last row
     inpt_arr = inpt_arr[:-1, :]
     # reshape to fit data structure assumption in ssm package
