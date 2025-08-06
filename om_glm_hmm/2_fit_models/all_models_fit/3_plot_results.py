@@ -35,6 +35,9 @@ else:
     root_folder_name = 'om_choice_nopfail'
     # list of columns/predictors name as ordered by pansy
     labels_for_plot = ['stim', 'pchoice', 'bias']
+    # separate because the upper one is involved in column names
+    labels_for_plot_weights = ['bias', 'stim', 'pchoice']
+state_label = ['LowF-bias','HighF-bias','Engaged','Non']
 save_folder = Path(root_folder_dir) / root_folder_name / 'plots'
 if not os.path.exists(save_folder):
     os.makedirs(save_folder)
@@ -54,11 +57,13 @@ animal_list = load_animal_list(data_individual / 'animal_list.npz')
 # first index for all animals
 n_session_lst = [1,50]              # higher n sessions (>=60) seems to yield poorer fit??
 n_trials_lst = [5000,250]
-cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
-        '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-        '#999999', '#e41a1c', '#dede00'
-    ]
+# cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
+#         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
+#         '#999999', '#e41a1c', '#dede00'
+#     ]
 
+cols = [ "#15b01a", "#f97306", "#7e1e9c", "#3498db"
+    ]
 # trouble_animals =['23.0','24.0','26.0']
 trouble_animals =[]
 animal_list = list(set(animal_list)-set(trouble_animals))
@@ -68,13 +73,13 @@ all_animals = 0
 # flag for running individual animals analysis
 individual_animals = 0
 # flag for running k-state glm fit check
-glm_fit_check = 0
-sim_data = 1
+glm_fit_check = 1
+sim_data = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
 pred_acc_plot_multialpha = 0
 # flag for one animal
-one_animal = 1
+one_animal = 0
 
 exploratory_plot = 0
 
@@ -394,7 +399,8 @@ if glm_fit_check:
         # iterate over all k-states model
         for K in range(2, K_max + 1):
             # create fig
-            fig, ax = plt.subplots(3, K, figsize=(K + 4, 8), sharey="row")
+            fig, ax = plt.subplots(2, K, figsize=(K + 4, 6), sharey="row")
+            # fig, ax = plt.subplots(3, K, figsize=(K + 4, 8), sharey="row")
             inpt_data_all = pd.DataFrame()
             # get global raw file for each state
             raw_file = get_file_name_for_best_model_fold(
@@ -465,7 +471,10 @@ if glm_fit_check:
 
                 # plot individual weights here
                 for k_ind in range(K):
-                    ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
+                    new_ordered_weights_tmp = np.squeeze(weight_vectors[k_ind, :, :])
+                    bias_weight = new_ordered_weights_tmp[-1]
+                    new_ordered_weights_tmp = np.insert(new_ordered_weights_tmp, 0, bias_weight)
+                    ax[0, k_ind].plot(labels_for_plot_weights, new_ordered_weights_tmp[:-1], '--', color=cols[k_ind])
                 del inpt, inpt_data, inpt_unnorm, y
 
             ##################### PSYCHOMETRIC CURVES ##########################################
@@ -482,25 +491,29 @@ if glm_fit_check:
             # iterate over each state of K-state model
             for k_ind in range(K):
                 ######################## K-STATE WEIGHTS ################################################
-                ax[0, k_ind].plot(labels_for_plot, np.squeeze(global_weight_vectors[k_ind, :, :]), label='global',
+                new_ordered_weights_tmp = np.squeeze(global_weight_vectors[k_ind, :, :])
+                bias_weight = new_ordered_weights_tmp[-1]
+                new_ordered_weights_tmp = np.insert(new_ordered_weights_tmp, 0, bias_weight)
+                ax[0, k_ind].plot(labels_for_plot_weights, new_ordered_weights_tmp[:-1], label='global',
                                   color='black', linewidth=1.5)
-                ax[0, k_ind].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+                ax[0, k_ind].set_xticklabels(labels_for_plot_weights, fontsize=12, rotation=45)
                 ax[0, k_ind].axhline(0, linewidth=0.5, linestyle='--')
-                ax[0, k_ind].set_title('state ' + str(k_ind))
+                ax[0, k_ind].set_title(state_label[k_ind])
+                ax[0, k_ind].spines['right'].set_visible(False); ax[0, k_ind].spines['top'].set_visible(False)
                 ######################## DWELL TIMES ####################################################
-                logbins = np.logspace(np.log10(1),
-                                      np.log10(max(state_dwell_times[:, k_ind])), 15)
-                # plot dwell times for each state
-                ax[2, k_ind].hist(state_dwell_times[:, k_ind],
-                                  bins=logbins,
-                                  color=cols[k_ind],
-                                  histtype='bar',
-                                  rwidth=0.8)
-                ax[2, k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
-                                     linestyle='--',
-                                     color='k',
-                                     lw=1,
-                                     label='median')
+                # logbins = np.logspace(np.log10(1),
+                #                       np.log10(max(state_dwell_times[:, k_ind])), 15)
+                # # plot dwell times for each state
+                # ax[2, k_ind].hist(state_dwell_times[:, k_ind],
+                #                   bins=logbins,
+                #                   color=cols[k_ind],
+                #                   histtype='bar',
+                #                   rwidth=0.8)
+                # ax[2, k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
+                #                      linestyle='--',
+                #                      color='k',
+                #                      lw=1,
+                #                      label='median')
 
                 ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
                 for animal in animal_list:
@@ -538,6 +551,7 @@ if glm_fit_check:
                                               rotation=45)
                 ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
                 ax[1, k_ind].axvline(0, linewidth=0.5, linestyle='--')
+                ax[1, k_ind].spines['right'].set_visible(False); ax[1, k_ind].spines['top'].set_visible(False)
             plt.tight_layout()
             plt.show()
             fig.savefig(save_folder / ('all_K' + str(K) + '_glmhmm_modelcheck_realdata.png'), format='png', bbox_inches="tight")

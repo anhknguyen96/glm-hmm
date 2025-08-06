@@ -8,7 +8,7 @@ from collections import Counter
 # sys.path.append('.')
 import matplotlib.pyplot as plt
 # from scipy.stats import sem
-import seaborn as sns
+# import seaborn as sns
 # from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
 #     get_file_name_for_best_model_fold, partition_data_by_session, \
 #     create_violation_mask, get_marginal_posterior, get_global_weights, get_global_trans_mat, load_animal_list,\
@@ -42,11 +42,8 @@ labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice','bias']
 # first index for all animals
 n_session_lst = [1,50]              # higher n sessions (>=60) seems to yield poorer fit??
 n_trials_lst = [5000,250]
-cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
-        '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-        '#999999', '#e41a1c', '#dede00'
+cols = [ "#15b01a", "#f97306", "#7e1e9c", "#3498db"
     ]
-#
 # trouble_animals =['23.0','24.0','26.0']
 # animal_list = list(set(animal_list)-set(trouble_animals))
 
@@ -143,16 +140,24 @@ if exploratory_plot:
         state_bef_index = np.array(state_change_index) - 1
         state_aft_index = np.array(state_change_index) + state_dur_id + 1
 
-        # now update K3 state
+        # now update K3 state - the switching state issue remains if the state switching are close to each other
+        # however the number of short states reduced significantly - from 2/3 digits to 1
         if state_dur_lst[state_dur_id] != 4:
             np.put(state_processed, state_change_index, inpt_data_all['K3_state'].iloc[state_bef_index].values)
             print(np.unique(state_processed[state_change_index] == inpt_data_all['K3_state'].iloc[state_bef_index].values))
             if state_dur_lst[state_dur_id] > 1 and state_dur_lst[state_dur_id] <=3:
                 np.put(state_processed, np.array(state_change_index) + 1,
                        inpt_data_all['K3_state'].iloc[state_bef_index].values)
+
+                print(np.unique(
+                    state_processed[np.array(state_change_index) + 1] == inpt_data_all['K3_state'].iloc[state_bef_index].values))
                 if state_dur_lst[state_dur_id] == 3:
                     np.put(state_processed, np.array(state_change_index) + 2,
-                           inpt_data_all['K3_state'].iloc[state_bef_index].values)
+                               inpt_data_all['K3_state'].iloc[state_bef_index].values)
+
+                    print(np.unique(
+                        state_processed[np.array(state_change_index) + 2] == inpt_data_all['K3_state'].iloc[
+                            state_bef_index].values))
 
         state_curr = inpt_data_all['K3_state'].iloc[state_change_index].values
         # state_processed_arr = inpt_data_all['K3_state_processed'].iloc[state_change_index].values
@@ -194,7 +199,7 @@ if exploratory_plot:
         i +=1
         plt.hist(state_first.loc[state_first.state_dur==i,'K3_diff']);plt.show()
 
-    def survey(results, category_names):
+    def survey(results, category_names, category_colors):
         """
         Parameters
         ----------
@@ -208,11 +213,9 @@ if exploratory_plot:
         labels = list(results.keys())
         labels = [str(elements) for elements in labels]
         data = np.array(list(results.values()))
-        cmap = plt.get_cmap('RdYlGn')
-        category_colors = cmap(
-            np.linspace(0.15, 0.85, data.shape[1]))
 
-        fig, ax = plt.subplots(1,2,figsize=(12, 18))
+
+        fig, ax = plt.subplots(1,2,figsize=(14, 12))
         ax[0].invert_yaxis()
         # ax[0].xaxis.set_visible(False)
         ax[0].set_xlim(0, 100)
@@ -231,11 +234,12 @@ if exploratory_plot:
             rects = ax[0].barh(labels, widths, left=starts, height=0.5,
                             label=colname, color=color)
 
-            r, g, b, _ = color
-            text_color = 'white' if r * g * b < 0.5 else 'darkgrey'
+            # r, g, b, _ = color
+            # text_color = 'white' if r * g * b < 0.5 else 'darkgrey'
+            text_color = 'white'
             ax[0].bar_label(rects, label_type='center', color=text_color)
         ax[0].legend(ncols=len(category_names),
-                  loc='lower left', fontsize='large')
+                  loc='lower left', fontsize=14)
 
         return fig, ax, category_colors
     ## plot dominant state and average transition per session for each mouse
@@ -244,9 +248,9 @@ if exploratory_plot:
     state_fraction.iloc[:, 1:] = np.round(state_fraction.iloc[:, 1:] * 100,2)
     state_dict = state_fraction.set_index('mouse_id').T.to_dict('list')
 
-    fig,ax, category_colors=survey(state_dict, state_label)
+    fig,ax, category_colors=survey(state_dict, state_label, cols)
     ax[0].spines['right'].set_visible(False); ax[0].spines['top'].set_visible(False)
-    ax[0].set_xlabel('Percentage of states across mice');
+    ax[0].set_xlabel('Percentage of states across mice', fontsize=14);
     # state transition per sess
     state_transition = state_first.groupby(['mouse_id'])['session_identifier'].value_counts().reset_index()
     state_transition_median = state_transition.groupby('mouse_id')['count'].median().reset_index()
@@ -254,10 +258,10 @@ if exploratory_plot:
     state_transition['mouse_id'] = state_transition['mouse_id'].astype(str)
 
     ax[1].scatter(state_transition['count'], state_transition['mouse_id'], alpha=0.2, label='individual session')
-    ax[1].scatter(state_transition_median['count'], state_transition_median['mouse_id'], color='blue', label='median per mouse')
-    ax[1].axvline(x=state_transition_median['count'].median(),linewidth=0.5,linestyle='--',label='median all')
-    ax[1].set_xlabel('Transitions per session')
-    ax[1].legend(loc="lower left", fontsize='large')
+    ax[1].scatter(state_transition_median['count'], state_transition_median['mouse_id'], color='yellow', edgecolor='k', label='median per mouse')
+    ax[1].axvline(x=state_transition_median['count'].median(),linewidth=1,linestyle='--',label='median all')
+    ax[1].set_xlabel('Transitions per session', fontsize=14)
+    ax[1].legend(loc="lower left", fontsize=14)
     ax[1].spines['left'].set_visible(False); ax[1].spines['top'].set_visible(False)
     ax[1].set_yticks([])
     ax[1].xaxis.set_inverted(True); ax[1].yaxis.set_inverted(True); fig.tight_layout(); fig.show()
@@ -265,19 +269,19 @@ if exploratory_plot:
     fig.savefig(save_folder/('K3_transitions_per_sess_PROCESSED.png'),format='png', bbox_inches="tight")
 
     ## state duration hist
-    fig, ax = plt.subplots(len(state_label),1,figsize=(6,18),sharey=True)
+    fig, ax = plt.subplots(1,len(state_label),figsize=(9,4),sharey=True)
     state_dur_lim = 450
     for i in range(len(state_label)):
         tmp_dur = state_first.loc[(state_first['K3_state_processed']==i)&(state_first.state_dur<state_dur_lim),'state_dur']
         tmp_dur_median = tmp_dur.median()
-        ax[i].hist(tmp_dur,bins=int(state_dur_lim/10), color=category_colors[i],edgecolor='k', alpha=0.5,label=state_label[i])
+        ax[i].hist(tmp_dur,bins=int(state_dur_lim/10), color=category_colors[i],edgecolor='k', alpha=0.5)
         ax[i].axvline(tmp_dur_median, linestyle='--',c='k', label='median = '+ str(int(tmp_dur_median)))
-        ax[i].legend(loc="lower right", fontsize='large')
+        ax[i].legend(loc="upper right", fontsize='large')
         ax[i].spines['right'].set_visible(False);
         ax[i].spines['top'].set_visible(False)
-        ax[i].set_ylabel('Counts')
         ax[i].set_xlim([0,state_dur_lim])
-    ax[2].set_xlabel('State dwell times')
+        ax[i].set_xlabel('State dwell times')
+    ax[0].set_ylabel('Counts')
     fig.suptitle('Distribution of state dwell times')
     fig.tight_layout(); fig.show()
     fig.savefig(save_folder/('K3_state_dwell_times_PROCESSED.png'),format='png', bbox_inches="tight")
@@ -285,10 +289,10 @@ if exploratory_plot:
 
 
     # plot histogram of state probability diff
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(6, 5))
     ax.hist(inpt_data_all['K3_diff'], bins=30, alpha=0.2,edgecolor='black');
-    ax.set_ylabel('Counts'); ax.set_xlabel('Difference in posterior probabilities between states')
-    ax.set_title('Segregation between the most likely state and the next')
+    ax.set_ylabel('Counts'); ax.set_xlabel('Difference in posterior probabilities between states', fontsize=14)
+    fig.suptitle('Segregation between the most likely state and the next')
     # ax.set_yscale("log");plt.minorticks_off()
     ax.spines['right'].set_visible(False); ax.spines['top'].set_visible(False)
     # https: // stackoverflow.com / questions / 21001088 / how - to - add - different - graphs - as -an - inset - in -another - python - graph
@@ -434,5 +438,201 @@ if exploratory_plot:
         fig.savefig(save_folder / ('K3_transition_points_state_counts_'+str(state_dur_lst[state_dur_id])+'.png'), format='png', bbox_inches="tight")
 
 
+    # plot transitons into and out of
+    K = 3
+    n_trials = 3
+    # for matrix plot
+    fig = plt.figure(figsize=(10, 10))
+    columns_label = [str(x) for x in np.arange(K)]
+    plotz = K
+    index_state_change_all_big = index_data[inpt_data_all['K3_state_change_processed'] == 1][1:]
+    discard_len = []
+    discard_len = []
+    discard_list = []
+    # other states transitioning to 1 state
+    for set_K in range(K):
+        state_success_lst = []
+        state_choice_lst = []
+        mean_state_bef_lst = []
+        mean_state_aft_lst = []
+        # get index of state change of only one state
+        index_state_change_all = np.array(
+            list(set(index_state_change_all_big).intersection(set(index_data[inpt_data_all['K3_state_processed'] == set_K]))))
+        # get index of the state before the state change
+        index_state_end = index_state_change_all - 1
+        # get state identity before state change
+        state_before = inpt_data_all['K3_state_processed'].iloc[index_state_end]
+        # plt.hist(state_before);
+        # plt.show()
+        # fig,ax = plt.subplots(1,2,figsize=(10,5))
+        # ax[1].hist(state_before,color='k',alpha=0.6);
+        # ax[1].set_title('counts of states'); ax[1].set_xlabel('state identity')
+        # loop over states before state change
+        for k_num in range(K):
+            # because theres no state change if state before match current state, set dummy array for plotting
+            if k_num == set_K:
+                state_success_lst.append(np.zeros(n_trials * 2))
+                state_choice_lst.append(np.zeros(n_trials * 2))
+                mean_state_bef_lst.append(0)
+                mean_state_aft_lst.append(0)
+                continue
+            # get index of where state before match k_num
+            index_state_change_tmp = np.where(state_before == k_num)
+            # get real index from the original dataframe
+            index_state_change = index_state_change_all[index_state_change_tmp]
+            # initialize arrays
+            state_start_array_success = np.zeros(n_trials)
+            state_end_array_success = np.zeros(n_trials)
+            state_start_array_choice = np.zeros(n_trials)
+            state_end_array_choice = np.zeros(n_trials)
+            mean_state_bef = []
+            mean_state_aft = []
+            # loop through each state change index to get n_trials before and after
+            for i in range(len(index_state_change)):
+                # get state change index that matches with the big list
+                ind_tmp_big_list = np.where(index_state_change_all_big == index_state_change[i])[0]
+                if ind_tmp_big_list == 0:
+                    ind_tmp_bef = 1
+                    ind_tmp_aft = index_state_change_all_big[ind_tmp_big_list + 1][0]
+                elif ind_tmp_big_list == len(index_state_change_all_big) - 1:
+                    ind_tmp_bef = index_state_change_all_big[ind_tmp_big_list - 1][0]
+                    ind_tmp_aft = len(inpt_data_all) - 1
+                else:
+                    ind_tmp_bef = index_state_change_all_big[ind_tmp_big_list - 1][0]
+                    ind_tmp_aft = index_state_change_all_big[ind_tmp_big_list + 1][0]
+                # get length state before and after, if lower than n_trials discard
+                len_state_bef = index_state_change[i] - ind_tmp_bef
+                len_state_aft = ind_tmp_aft - index_state_change[i]
+                if len_state_bef < n_trials or len_state_aft < n_trials:
+                    if len_state_bef < n_trials:
+                        discard_len.append(len_state_bef)
+                        discard_list.append(index_state_change[i] - 1)
+                        # inpt_data_all['state_valid_2'].iloc[
+                        # index_state_change[i] - len_state_bef:index_state_change[i]] = 0
+                    else:
+                        discard_len.append(len_state_aft)
+                        discard_list.append(index_state_change[i])
+                        # inpt_data_all['state_valid_2'].iloc[
+                        # index_state_change[i]:index_state_change[i] + len_state_aft] = 0
+                    continue
+                mean_state_bef.append(np.mean(inpt_data_all['success'].iloc[ind_tmp_bef:index_state_change[i]]))
+                mean_state_aft.append(np.mean(inpt_data_all['success'].iloc[index_state_change[i]:ind_tmp_aft]))
+
+                # state end mean and length
+                # start and end of the state change with success
+                state_start_array_success = np.vstack(
+                    [state_start_array_success,
+                     inpt_data_all['success'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+                state_end_array_success = np.vstack(
+                    [state_end_array_success,
+                     inpt_data_all['success'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
+                # start and end of the state change with choice
+                state_start_array_choice = np.vstack(
+                    [state_start_array_choice,
+                     inpt_data_all['choice'].iloc[index_state_change[i]:index_state_change[i] + n_trials]])
+                state_end_array_choice = np.vstack(
+                    [state_end_array_choice,
+                     inpt_data_all['choice'].iloc[index_state_change[i] - n_trials:index_state_change[i]]])
+            # list of states
+            state_success_lst.append(np.hstack([state_end_array_success[1:, :], state_start_array_success[1:, :]]))
+            state_choice_lst.append(np.hstack([state_end_array_choice[1:, :], state_start_array_choice[1:, :]]))
+            mean_state_bef_lst.append(np.mean(np.array(mean_state_bef)))
+            mean_state_aft_lst.append(np.mean(np.array(mean_state_aft)))
+        for i in range(plotz):
+            if i == set_K:
+                # initialize ax
+                ax = plt.subplot2grid((plotz, plotz), (i, set_K), fig=fig)
+                # set color for this subgrid
+                ax.set_facecolor("#580F41")
+                ax.patch.set_alpha(0.9)
+                ax.yaxis.set_ticklabels([])
+                ax.xaxis.set_ticklabels([])
+                if i == plotz - 1:
+                    ax.set_xlabel('to ' + columns_label[set_K])
+                if set_K == 0:
+                    ax.set_ylabel('from ' + columns_label[set_K], rotation=0, ha='right')
+                # Show all ticks and label them with the respective list entries
+
+            else:
+                print(i, set_K)
+                ax = plt.subplot2grid((plotz, plotz), (i, set_K), fig=fig)
+                ax.plot(np.mean(state_success_lst[i], axis=0), color=cols[i], lw=1.2)
+                ax.plot(np.mean(state_choice_lst[i], axis=0), color=cols[i], lw=1, linestyle='--')
+                ax.axhline(y=mean_state_bef_lst[i], xmin=0, xmax=0.4, linestyle='--', lw=.6, color=cols[i])
+                ax.axhline(y=mean_state_aft_lst[i], xmin=0.6, xmax=1, linestyle='--', lw=.6, color=cols[set_K])
+                ax.axvline(x=n_trials, linestyle='--', lw=.5, color='k');
+                ax.axhline(y=0.5, linestyle='--', lw=.5, color='k')
+                ax.set_xticks(np.arange(n_trials*2))
+                ax.xaxis.set_ticklabels(['t-3','t-2','t-1','t','t+1','t+2'])
+                if i == plotz - 1:
+                    ax.set_xlabel('to ' + columns_label[set_K])
+                else:
+                    ax.xaxis.set_ticklabels([])
+                if set_K == 0:
+                    ax.set_ylabel('from ' + columns_label[i], rotation=0, ha='right')
+                else:
+                    ax.yaxis.set_ticklabels([])
+            ax.set_ylim([-0.01, 1.01])
+            ax.set_xlim([-0.1, n_trials * 2 - .9])
+    fig.savefig(save_folder/('K3_transition_into_out_matrix.png'), format='png', bbox_inches="tight")
+    plt.show()
+
+    #### plot psychometrics based on states
+    state_label = ['LowF-bias','HighF-bias','Engaged']
+    # conditioned on pfail
+    data_stack = inpt_data_all.groupby(['mouse_id','K3_state_processed','binned_freq','pfail'])['choice'].value_counts(
+                normalize=True).unstack('choice').reset_index()
+    g = sns.FacetGrid(data_stack, row='K3_state_processed',hue='pfail', height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0);axes = g.axes.flatten()
+    for i, ax in enumerate(axes):
+        ax.set_ylim([0, 1]);
+        ax.set_xlim([-.75, .75])
+        ax.set_ylabel('Proportion High')
+        ax.axhline(0.5, ls='--', c='black', linewidth=0.2)
+        ax.axvline(0, ls='--', c='black', linewidth=0.2)
+        ax.set_title(state_label[i])
+        if i == 2:
+            ax.set_xlabel('Distance to threshold (Octave)')
+            ax.legend(loc='lower right',title='Pfail')
+    plt.show()
+    g.savefig(save_folder / ('psychometrics_state_pfail_conditioned.png'), format='png', bbox_inches="tight" )
+
+    # conditioned on pfail and pchoice
+    data_stack = inpt_data_all.groupby(['mouse_id', 'K3_state_processed', 'binned_freq', 'pfail','pchoice'])[
+        'choice'].value_counts(
+        normalize=True).unstack('choice').reset_index()
+    state_label = ['LowF-bias','LowF-bias', 'HighF-bias', 'HighF-bias', 'Engaged', 'Engaged']
+    g = sns.FacetGrid(data_stack,
+                      row='K3_state_processed', col='pfail', hue='pchoice', palette=['c','y'], height=3.5, aspect=.95)
+    g.map_dataframe(sns.lineplot, x='binned_freq', y=0);
+    axes = g.axes.flatten()
+    for i, ax in enumerate(axes):
+        ax.set_ylim([0, 1]);
+        ax.set_xlim([-.75, .75])
+        ax.set_ylabel('Proportion High')
+        ax.set_title('')
+        ax.axhline(0.5, ls='--', c='black', linewidth=0.2)
+        ax.axvline(0, ls='--', c='black', linewidth=0.2)
+        if i >= len(axes)-2:
+            ax.set_xlabel('Distance to threshold (Octave)')
+    axes[1].set_title('Pfail')
+    axes[0].set_title('Psuccess')
+    plt.show()
+    g.savefig(save_folder / ('psychometrics_state_pfail_pchoice_conditioned.png'), format='png', bbox_inches="tight")
 
 
+    ####
+    coef_df = pd.read_csv('/home/anh/Documents/phd/outcome_manip/data/glmer_state_transition_coef.csv')
+    model_name_lst = coef_df.model_name.unique()
+    pred_col_lst = coef_df.columns[1:6]
+    pred_col_label = ['stim','pchoice','pfail','rb','ra']
+    for i in range(len(model_name_lst)):
+        fig,ax = plt.subplots(figsize=(4,4))
+        ax.plot(np.arange(len(pred_col_lst)), coef_df.loc[coef_df.model_name==model_name_lst[i],pred_col_lst].values.squeeze(),'-ko', linewidth=0.5)
+        ax.axhline(y=0,linewidth=0.2,linestyle='--')
+        ax.spines['right'].set_visible(False);
+        ax.spines['top'].set_visible(False)
+        ax.set_xticks(np.arange(len(pred_col_lst)))
+        ax.set_xticklabels(pred_col_label,rotation=45)
+        ax.set_title(label=model_name_lst[i],loc='left')
+        fig.savefig(save_folder / ('K3_transition_coef_'+model_name_lst[i]+'.png'), format='png', bbox_inches="tight")
