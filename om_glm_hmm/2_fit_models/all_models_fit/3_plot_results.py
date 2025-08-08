@@ -73,7 +73,7 @@ all_animals = 0
 # flag for running individual animals analysis
 individual_animals = 0
 # flag for running k-state glm fit check
-glm_fit_check = 1
+glm_fit_check = 0
 sim_data = 0
 # flag for predictive accuracy plot
 pred_acc_plot = 0
@@ -81,7 +81,7 @@ pred_acc_plot_multialpha = 0
 # flag for one animal
 one_animal = 0
 
-exploratory_plot = 0
+exploratory_plot = 1
 
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
@@ -1224,9 +1224,15 @@ if exploratory_plot:
     # diff_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
     # # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
     #
-    K = 3
+    get_opto = 1
     # this is to get other columns for analysis
-    raw_df = pd.read_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
+    if get_opto:
+        raw_df = pd.read_csv(os.path.join(data_dir,'opto_om_batch2_processed.csv'))
+        raw_df = raw_df.loc[(raw_df.sound_diff < 37) & (raw_df.sound_diff > 31)].copy().reset_index(drop=True)
+        save_name = 'opto_om_state_info.csv'
+    else:
+        raw_df = pd.read_csv(os.path.join(data_dir, 'om_all_batch1&2&3&4_processed.csv'))
+        save_name = 'om_state_info.csv'
     # each animal concat
     inpt_data_all = pd.DataFrame()
     for animal in animal_list:
@@ -1270,7 +1276,10 @@ if exploratory_plot:
         inpt_data['pstim'] = np.asarray(
             raw_df['prev_freq_trans'].loc[raw_df['mouse_id'] == float(animal)])
         # get binned freqs for psychometrics
-        inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
+        if get_opto:
+            inpt_data["binned_freq"] = inpt_data["stim"].copy()
+        else:
+            inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
                                               include_lowest=True)
 
         # get state inference
@@ -1312,52 +1321,7 @@ if exploratory_plot:
         inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
         del inpt_data, posterior_probs_pd
 
-    index_data = inpt_data_all.index
-    inpt_data_all['success_trans'] = inpt_data_all.success.copy()
-    inpt_data_all.loc[inpt_data_all.success_trans == 0, 'success_trans'] = -1
-
-    inpt_data_all['rolling_bias'] = inpt_data_all['choice_trans'].shift(periods=2)
-    inpt_data_all['rolling_accuracy'] = inpt_data_all['success'].shift(periods=2)
-
-    inpt_data_all['shited_success'] = inpt_data_all['success'].shift(periods=2)
-    window_length = [5, 20, 50, 100, 150, 200, 250]
-    rolling_acc_arr = np.ones((len(inpt_data_all), len(window_length)))
-    for session_no in inpt_data_all.session_identifier.unique():
-        session_no_index = list(index_data[(inpt_data_all['session_identifier'] == session_no)])
-        inpt_data_all.loc[session_no_index, 'rolling_bias'] = inpt_data_all.loc[
-            session_no_index, 'rolling_bias'].rolling(
-            window=window_length[0]).mean()
-        # fill the initial, engaged nan trials with median of rolling accuracy in that session
-        median_sess = inpt_data_all.loc[session_no_index, 'rolling_bias'].median()
-        # inplace does not work with df slices!!
-        inpt_data_all.loc[session_no_index, 'rolling_bias'] = inpt_data_all.loc[
-            session_no_index, 'rolling_bias'].fillna(median_sess)
-
-        # only calculate rolling success in engaged trials
-        inpt_data_all.loc[session_no_index, 'rolling_accuracy'] = inpt_data_all.loc[
-            session_no_index, 'rolling_accuracy'].rolling(
-            window=window_length[0]).mean()
-        # fill the initial, engaged nan trials with median of rolling accuracy in that session
-        median_sess = inpt_data_all.loc[session_no_index, 'rolling_accuracy'].median()
-        # inplace does not work with df slices!!
-        inpt_data_all.loc[session_no_index, 'rolling_accuracy'] = inpt_data_all.loc[
-            session_no_index, 'rolling_accuracy'].fillna(median_sess)
-
-        # get different rolling accuracy for different window length
-        for window_id in range(len(window_length)):
-            min_periods = int(window_length[window_id] / 10)
-            if min_periods < 1:
-                min_periods = int(min_periods * 10)
-            # only calculate rolling success in engaged trials
-            rolling_acc_arr[session_no_index, window_id] = inpt_data_all.loc[
-                session_no_index, 'shited_success'].rolling(
-                window=window_length[window_id], min_periods=min_periods).mean()
-            # fill the initial, engaged nan trials with median of rolling accuracy in that session
-            median_sess = np.nanmean(rolling_acc_arr[session_no_index, window_id])
-            # inplace does not work with df slices!!
-            rolling_acc_arr[session_no_index, window_id] = np.nan_to_num(rolling_acc_arr[session_no_index, window_id],
-                                                                         nan=median_sess)
-    inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
+    inpt_data_all.to_csv(os.path.join(data_dir, save_name))
     # inpt_data_all = pd.read_csv(os.path.join(data_dir,'om_state_info.csv'))
     # inpt_data_all['state_valid'] = np.ones(len(inpt_data_all))
     # inpt_data_all['state_valid_2'] = np.ones(len(inpt_data_all))
