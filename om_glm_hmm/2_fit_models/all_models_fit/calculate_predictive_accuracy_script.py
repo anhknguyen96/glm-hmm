@@ -18,7 +18,11 @@ cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306"]
 
 if __name__ == '__main__':
     root_folder_dir = '/home/anh/Documents/phd'
-    root_folder_name = 'om_choice'
+    pfail = 0
+    if pfail == 1:
+        root_folder_name = 'om_choice'
+    else:
+        root_folder_name = 'om_choice_nopfail_opto'
     test_alpha = 0
     if test_alpha == 1:
         label_alpha = '_transitionalpha_1-2'

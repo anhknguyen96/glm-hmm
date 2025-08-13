@@ -77,7 +77,7 @@ if __name__ == '__main__':
     # root_folder_dir = str(sys.argv[1])
     root_folder_dir = '/home/anh/Documents/phd'
 
-    root_folder_name = 'om_choice_nopfail'
+    root_folder_name = 'om_choice_nopfail_opto'
     root_data_dir = Path(root_folder_dir) / root_folder_name / 'data'
     root_result_dir = Path(root_folder_dir) / root_folder_name / 'result'
     global_data_dir = root_data_dir /  (root_folder_name + '_data_for_cluster')
