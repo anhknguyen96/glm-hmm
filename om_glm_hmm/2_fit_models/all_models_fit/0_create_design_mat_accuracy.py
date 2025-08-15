@@ -43,63 +43,69 @@ if __name__ == '__main__':
             (om.mouse_id > 13) & (om.prev_om_gen == 0) & (om.lick_side_freq != -2) & (om.prev_choice != -2) & (
                         om.prev_reward_prob == 0.5) & (om.prev_choice2 != -2)]
         om_cleaned = pd.concat([data_batch12, data_batch34], ignore_index=True)
-        # now take care of predictors
-        index = om_cleaned.index
-        om_cleaned['prev_failure'] = om_cleaned['prev_failure'].astype('int')
-        om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
-        # for glmhmm, better to not z-score on a session basis -> biased estimation of intercept
-        om_cleaned['glmhmm_freq_trans'] = scipy.stats.zscore(om_cleaned['freq_trans'])
-        om_cleaned['z_freq_trans'] = om_cleaned['freq_trans'].copy()
-        om_cleaned['z_prev_choice'] = om_cleaned['prev_choice'].copy()
-        om_cleaned['z_prev_failure'] = om_cleaned['prev_failure'].copy()
-        # also discard sess that have less than 50 trials
-        om_cleaned_session = pd.DataFrame()
-        for session_no in om_cleaned.session_identifier.unique():
-            # get indices of trials in the session
-            session_no_index = list(index[(om_cleaned['session_identifier'] == session_no)])
-            if len(session_no_index) <= 50:
-                print(session_no)
-                continue
-            # z score predictors on a session basis
-            om_cleaned.loc[session_no_index, 'z_freq_trans'] = scipy.stats.zscore(
-                om_cleaned.loc[session_no_index, 'freq_trans'])
-            median_sess = om_cleaned.loc[session_no_index, 'z_freq_trans'].median()
-            # inplace does not work with df slices!!
-            om_cleaned.loc[session_no_index, 'z_freq_trans'] = om_cleaned.loc[
-                session_no_index, 'z_freq_trans'].fillna(median_sess)
-
-            om_cleaned.loc[session_no_index, 'z_prev_choice'] = scipy.stats.zscore(
-                om_cleaned.loc[session_no_index, 'prev_choice'])
-            median_sess = om_cleaned.loc[session_no_index, 'z_prev_choice'].median()
-            # inplace does not work with df slices!!
-            om_cleaned.loc[session_no_index, 'z_prev_choice'] = om_cleaned.loc[
-                session_no_index, 'z_prev_choice'].fillna(median_sess)
-
-            om_cleaned.loc[session_no_index, 'z_prev_failure'] = scipy.stats.zscore(
-                om_cleaned.loc[session_no_index, 'prev_failure'])
-            # has to be mean for prev failure because median spits out nan
-            median_sess = om_cleaned.loc[session_no_index, 'z_prev_failure'].mean()
-            # inplace does not work with df slices!!
-            om_cleaned.loc[session_no_index, 'z_prev_failure'] = om_cleaned.loc[
-                session_no_index, 'z_prev_failure'].fillna(median_sess)
-
-            # only get sesssions that have more than 50 trials
-            om_cleaned_session = pd.concat(
-                (om_cleaned_session, om_cleaned.loc[om_cleaned.session_identifier == session_no]))
-        # save for other processes
-        om_cleaned_session = om_cleaned_session.reset_index()
-        print(len(om_cleaned))
-        print(len(om_cleaned_session))
-        om_cleaned_session.to_csv(os.path.join(data_dir, 'om_all_batch1&2&3&4_processed.csv'))
-        del om_cleaned, om, data_batch34, data_batch12
+        del data_batch34, data_batch12
+        file_processed_save_name = 'om_all_batch1&2&3&4_processed.csv'
 
     else:
-        file_path = '/home/anh/Documents/phd/outcome_manip_git/data/opto_om_batch2_processed.csv'
+
+        file_path = '/home/anh/Documents/phd/outcome_manip_git/data/opto_om_batch2.csv'
         om = pd.read_csv(file_path)
         # clean data
-        om_cleaned_session = om.loc[(om.sound_diff < 37) & (om.sound_diff > 31)].copy().reset_index(drop=True)
-        om_cleaned_session['mouse_id'] = om_cleaned_session['mouse_id'].astype(str)
-        del om
+        om_cleaned = om.loc[(om.sound_diff < 37) & (om.sound_diff > 31) &
+                            (om.lick_side_freq != -2) & (om.prev_choice != -2) &
+                            (om.prev_reward_prob == 0.5) & (om.prev_choice2 != -2) ].copy().reset_index(drop=True)
+        om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
+        file_processed_save_name = 'opto_om_withrecording_processed.csv'
+
+    # now take care of predictors - but don't zscore them for glmhmm
+    index = om_cleaned.index
+    om_cleaned['prev_failure'] = om_cleaned['prev_failure'].astype('int')
+    om_cleaned['mouse_id'] = om_cleaned['mouse_id'].astype(str)
+    # for glmhmm, better to not z-score on a session basis -> biased estimation of intercept
+    om_cleaned['z_freq_trans'] = om_cleaned['freq_trans'].copy()
+    om_cleaned['z_prev_choice'] = om_cleaned['prev_choice'].copy()
+    om_cleaned['z_prev_failure'] = om_cleaned['prev_failure'].copy()
+    # also discard sess that have less than 50 trials
+    om_cleaned_session = pd.DataFrame()
+    for session_no in om_cleaned.session_identifier.unique():
+        # get indices of trials in the session
+        session_no_index = list(index[(om_cleaned['session_identifier'] == session_no)])
+        if len(session_no_index) <= 50:
+            print(session_no)
+            continue
+        # z score predictors on a session basis
+        om_cleaned.loc[session_no_index, 'z_freq_trans'] = scipy.stats.zscore(
+            om_cleaned.loc[session_no_index, 'freq_trans'])
+        median_sess = om_cleaned.loc[session_no_index, 'z_freq_trans'].median()
+        # inplace does not work with df slices!!
+        om_cleaned.loc[session_no_index, 'z_freq_trans'] = om_cleaned.loc[
+            session_no_index, 'z_freq_trans'].fillna(median_sess)
+
+        om_cleaned.loc[session_no_index, 'z_prev_choice'] = scipy.stats.zscore(
+            om_cleaned.loc[session_no_index, 'prev_choice'])
+        median_sess = om_cleaned.loc[session_no_index, 'z_prev_choice'].median()
+        # inplace does not work with df slices!!
+        om_cleaned.loc[session_no_index, 'z_prev_choice'] = om_cleaned.loc[
+            session_no_index, 'z_prev_choice'].fillna(median_sess)
+
+        om_cleaned.loc[session_no_index, 'z_prev_failure'] = scipy.stats.zscore(
+            om_cleaned.loc[session_no_index, 'prev_failure'])
+        # has to be mean for prev failure because median spits out nan
+        median_sess = om_cleaned.loc[session_no_index, 'z_prev_failure'].mean()
+        # inplace does not work with df slices!!
+        om_cleaned.loc[session_no_index, 'z_prev_failure'] = om_cleaned.loc[
+            session_no_index, 'z_prev_failure'].fillna(median_sess)
+
+        # only get sesssions that have more than 50 trials
+        om_cleaned_session = pd.concat(
+            (om_cleaned_session, om_cleaned.loc[om_cleaned.session_identifier == session_no]))
+    # save for other processes
+    om_cleaned_session = om_cleaned_session.reset_index()
+    print(len(om_cleaned))
+    print(len(om_cleaned_session))
+    om_cleaned_session.to_csv(os.path.join(data_dir, file_processed_save_name))
+    del om_cleaned, om
+
     # to create a dict of mice
     animal_df = om_cleaned_session[['mouse_id','session_identifier']].copy()
     animal_df = animal_df.drop_duplicates(subset=['session_identifier'])

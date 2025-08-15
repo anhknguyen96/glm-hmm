@@ -46,7 +46,7 @@ cols = [ "#15b01a", "#f97306", "#7e1e9c", "#3498db"
     ]
 # trouble_animals =['23.0','24.0','26.0']
 # animal_list = list(set(animal_list)-set(trouble_animals))
-get_opto = 1
+get_opto = 0
 
 # flag for running individual animals analysis
 individual_animals = 0

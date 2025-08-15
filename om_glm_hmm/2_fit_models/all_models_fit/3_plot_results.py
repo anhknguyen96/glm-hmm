@@ -32,7 +32,7 @@ if pfail == 1:
     # list of columns/predictors name as ordered by pansy
     labels_for_plot = ['pfail', 'stim', 'stim_pfail', 'pchoice', 'bias']
 else:
-    root_folder_name = 'om_choice_nopfail'
+    root_folder_name = 'om_choice_nopfail_opto'
     # list of columns/predictors name as ordered by pansy
     labels_for_plot = ['stim', 'pchoice', 'bias']
     # separate because the upper one is involved in column names
@@ -1277,7 +1277,10 @@ if exploratory_plot:
             raw_df['prev_freq_trans'].loc[raw_df['mouse_id'] == float(animal)])
         # get binned freqs for psychometrics
         if get_opto:
-            inpt_data["binned_freq"] = inpt_data["stim"].copy()
+            inpt_data["opto_trial"] = np.asarray(
+            raw_df['opto_trial'].loc[raw_df['mouse_id'] == float(animal)])
+            inpt_data["phase"] = np.asarray(
+                raw_df['phase'].loc[raw_df['mouse_id'] == float(animal)])
         else:
             inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
                                               include_lowest=True)
