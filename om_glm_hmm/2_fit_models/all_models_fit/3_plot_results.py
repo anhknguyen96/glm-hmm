@@ -35,6 +35,9 @@ else:
     root_folder_name = 'om_choice_nopfail'
     # list of columns/predictors name as ordered by pansy
     labels_for_plot = ['stim', 'pchoice', 'bias']
+    # separate because the upper one is involved in column names
+    labels_for_plot_weights = ['bias', 'stim', 'pchoice']
+state_label = ['LowF-bias','HighF-bias','Engaged','Non']
 save_folder = Path(root_folder_dir) / root_folder_name / 'plots'
 if not os.path.exists(save_folder):
     os.makedirs(save_folder)
@@ -54,29 +57,31 @@ animal_list = load_animal_list(data_individual / 'animal_list.npz')
 # first index for all animals
 n_session_lst = [1,50]              # higher n sessions (>=60) seems to yield poorer fit??
 n_trials_lst = [5000,250]
-cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
-        '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
-        '#999999', '#e41a1c', '#dede00'
-    ]
+# cols = ["#e74c3c", "#15b01a", "#7e1e9c", "#3498db", "#f97306",
+#         '#ff7f00', '#4daf4a', '#377eb8', '#f781bf', '#a65628', '#984ea3',
+#         '#999999', '#e41a1c', '#dede00'
+#     ]
 
+cols = [ "#15b01a", "#f97306", "#7e1e9c", "#3498db"
+    ]
 # trouble_animals =['23.0','24.0','26.0']
 trouble_animals =[]
 animal_list = list(set(animal_list)-set(trouble_animals))
 
 # flag for running all_animals analysis
-all_animals = 1
+all_animals = 0
 # flag for running individual animals analysis
-individual_animals = 1
+individual_animals = 0
 # flag for running k-state glm fit check
-glm_fit_check = 1
+glm_fit_check = 0
 sim_data = 0
 # flag for predictive accuracy plot
-pred_acc_plot = 1
+pred_acc_plot = 0
 pred_acc_plot_multialpha = 0
 # flag for one animal
 one_animal = 0
 
-exploratory_plot = 0
+exploratory_plot = 1
 
 ####################################################################################
 ##################### K-STATE GLM PRED ACC & NLL ###################################
@@ -378,7 +383,7 @@ if glm_fit_check:
 
         # load animal data for simulation
         inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
-        inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')calculate_state_permutation
+        inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
         # create dataframe all animals for plotting
         inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
         global_inpt_data_all = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
@@ -394,7 +399,8 @@ if glm_fit_check:
         # iterate over all k-states model
         for K in range(2, K_max + 1):
             # create fig
-            fig, ax = plt.subplots(3, K, figsize=(K + 4, 8), sharey="row")
+            fig, ax = plt.subplots(2, K, figsize=(K + 4, 6), sharey="row")
+            # fig, ax = plt.subplots(3, K, figsize=(K + 4, 8), sharey="row")
             inpt_data_all = pd.DataFrame()
             # get global raw file for each state
             raw_file = get_file_name_for_best_model_fold(
@@ -465,7 +471,10 @@ if glm_fit_check:
 
                 # plot individual weights here
                 for k_ind in range(K):
-                    ax[0, k_ind].plot(labels_for_plot, np.squeeze(weight_vectors[k_ind, :, :]), '--', color=cols[k_ind])
+                    new_ordered_weights_tmp = np.squeeze(weight_vectors[k_ind, :, :])
+                    bias_weight = new_ordered_weights_tmp[-1]
+                    new_ordered_weights_tmp = np.insert(new_ordered_weights_tmp, 0, bias_weight)
+                    ax[0, k_ind].plot(labels_for_plot_weights, new_ordered_weights_tmp[:-1], '--', color=cols[k_ind])
                 del inpt, inpt_data, inpt_unnorm, y
 
             ##################### PSYCHOMETRIC CURVES ##########################################
@@ -482,25 +491,29 @@ if glm_fit_check:
             # iterate over each state of K-state model
             for k_ind in range(K):
                 ######################## K-STATE WEIGHTS ################################################
-                ax[0, k_ind].plot(labels_for_plot, np.squeeze(global_weight_vectors[k_ind, :, :]), label='global',
+                new_ordered_weights_tmp = np.squeeze(global_weight_vectors[k_ind, :, :])
+                bias_weight = new_ordered_weights_tmp[-1]
+                new_ordered_weights_tmp = np.insert(new_ordered_weights_tmp, 0, bias_weight)
+                ax[0, k_ind].plot(labels_for_plot_weights, new_ordered_weights_tmp[:-1], label='global',
                                   color='black', linewidth=1.5)
-                ax[0, k_ind].set_xticklabels(labels_for_plot, fontsize=12, rotation=45)
+                ax[0, k_ind].set_xticklabels(labels_for_plot_weights, fontsize=12, rotation=45)
                 ax[0, k_ind].axhline(0, linewidth=0.5, linestyle='--')
-                ax[0, k_ind].set_title('state ' + str(k_ind))
+                ax[0, k_ind].set_title(state_label[k_ind])
+                ax[0, k_ind].spines['right'].set_visible(False); ax[0, k_ind].spines['top'].set_visible(False)
                 ######################## DWELL TIMES ####################################################
-                logbins = np.logspace(np.log10(1),
-                                      np.log10(max(state_dwell_times[:, k_ind])), 15)
-                # plot dwell times for each state
-                ax[2, k_ind].hist(state_dwell_times[:, k_ind],
-                                  bins=logbins,
-                                  color=cols[k_ind],
-                                  histtype='bar',
-                                  rwidth=0.8)
-                ax[2, k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
-                                     linestyle='--',
-                                     color='k',
-                                     lw=1,
-                                     label='median')
+                # logbins = np.logspace(np.log10(1),
+                #                       np.log10(max(state_dwell_times[:, k_ind])), 15)
+                # # plot dwell times for each state
+                # ax[2, k_ind].hist(state_dwell_times[:, k_ind],
+                #                   bins=logbins,
+                #                   color=cols[k_ind],
+                #                   histtype='bar',
+                #                   rwidth=0.8)
+                # ax[2, k_ind].axvline(np.median(state_dwell_times[:, k_ind]),
+                #                      linestyle='--',
+                #                      color='k',
+                #                      lw=1,
+                #                      label='median')
 
                 ##################### PLOT PSYCHOMETRICS FOR EACH K-STATE ######################################
                 for animal in animal_list:
@@ -538,6 +551,7 @@ if glm_fit_check:
                                               rotation=45)
                 ax[1, k_ind].axhline(0.5, linewidth=0.5, linestyle='--')
                 ax[1, k_ind].axvline(0, linewidth=0.5, linestyle='--')
+                ax[1, k_ind].spines['right'].set_visible(False); ax[1, k_ind].spines['top'].set_visible(False)
             plt.tight_layout()
             plt.show()
             fig.savefig(save_folder / ('all_K' + str(K) + '_glmhmm_modelcheck_realdata.png'), format='png', bbox_inches="tight")
@@ -573,6 +587,8 @@ if all_animals:
     M = inputs[0].shape[1]
     D = datas[0].shape[1]
 
+    ## this is where recovery of global fits mismatch with individual fits, since the weights were neither called with
+    ## get_global_weights nor permuted before refitting
     # get file name with best initialization given K value
     for K in range(2,K_max+1):
         raw_file = get_file_name_for_best_model_fold(
@@ -1037,8 +1053,8 @@ if one_animal:
     animal_lst = [19.0, 5.0, 1.0]
     animal_lst = [str(x) for x in animal_lst]
     K = 3
-    session_length = 150
-    session_max = 200
+    session_length = 200
+    session_max = 250
     for animal in animal_list:
 
         results_dir_individual_animal = results_dir_individual / animal
@@ -1099,7 +1115,7 @@ if one_animal:
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles, labels, loc='lower right'); sns.despine(fig,top=True,right=True)
         fig.suptitle('State change dynamics ' + animal); plt.tight_layout()
-        fig.savefig(save_folder / animal + '_state_changedynamics_K' + str(K) + 'averagedsess.png', format='png', bbox_inches="tight")
+        fig.savefig(save_folder / (animal + '_state_changedynamics_K' + str(K) + 'averagedsess.png'), format='png', bbox_inches="tight")
 
         #
         # sess_to_plot = [all_sessions[4],all_sessions[5],all_sessions[6],all_sessions[7],
@@ -1163,10 +1179,10 @@ if exploratory_plot:
     # cv_file = results_dir / 'cvbt_folds_model.npz'
     # cvbt_folds_model = load_cv_arr(cv_file)
     #
-    K = 4
+
     # # since min/max freq_trans is -1.5/1.5
-    # bin_lst = np.arange(-1.55, 1.6, 0.1)
-    # bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
+    bin_lst = np.arange(-1.55, 1.6, 0.1)
+    bin_name = np.round(np.arange(-1.5, 1.6, .1), 2)
     # # load animal data for simulation
     # inpt, y, session = load_data(data_dir / 'all_animals_concat.npz')
     # inpt_unnorm, _, _ = load_data(data_dir / 'all_animals_concat_unnormalized.npz')
@@ -1208,75 +1224,108 @@ if exploratory_plot:
     # diff_stack = inpt_data.groupby(['mouse_id', 'state', 'pfail'])['success'].value_counts(normalize=True).unstack('success').diff().reset_index()
     # # sns.pointplot(data=diff_stack.loc[(diff_stack.pfail == 1)], x='state', y=1, hue='mouse_id');
     #
-    # # this is to get other columns for analysis
-    # raw_df = pd.read_csv(os.path.join(data_dir,'om_all_batch1&2&3&4_processed.csv'))
-    # # each animal concat
-    # inpt_data_all = pd.DataFrame()
-    # for animal in animal_list:
-    #     print(animal)
-    #     results_dir_individual_animal = results_dir_individual / animal
-    #     cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
-    #     cvbt_folds_model = load_cv_arr(cv_file)
-    #
-    #     with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
-    #         best_init_cvbt_dict = json.load(f)
-    #
-    #     # Get the file name corresponding to the best initialization for given K value
-    #     raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
-    #                                                  results_dir_individual_animal,
-    #                                                  best_init_cvbt_dict)
-    #     hmm_params, lls = load_glmhmm_data(raw_file)
-    #
-    #     # Save parameters for initializing individual fits
-    #     weight_vectors = -hmm_params[2]
-    #     log_transition_matrix = hmm_params[1][0]
-    #     init_state_dist = hmm_params[0][0]
-    #     # Also get data for animal:
-    #     inpt, y, session = load_data(data_individual / (animal + '_processed.npz'))
-    #     inpt_unnorm, _, _ = load_data(data_individual / (animal + '_unnormalized.npz'))
-    #     all_sessions = np.unique(session)
-    #     # create dataframe single animals for plotting
-    #     inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
-    #     inpt_data = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
-    #     inpt_data['choice'] = y
-    #     # prepare data
-    #     violation_idx = np.where(y == -1)[0]
-    #     nonviolation_idx, mask = create_violation_mask(violation_idx,
-    #                                                    inpt.shape[0])
-    #     y[np.where(y == -1), :] = 1
-    #     inputs, datas, train_masks = partition_data_by_session(
-    #         np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
-    #
-    #     # get posterior probs for state inference
-    #     posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
-    #                                              hmm_params, K, range(K))
-    #     states_max_posterior = np.argmax(posterior_probs, axis=1)
-    #     inpt_data['state'] = states_max_posterior
-    #     inpt_data['mouse_id'] = np.ones(len(inpt_data)) * int(float(animal))
-    #     # transform choice (one-hot encoding) to convenient encoding to create success colum
-    #     inpt_data['choice_trans'] = inpt_data['choice'].map({1: 1, 0: -1})
-    #     # inpt_data['success'] = np.zeros(len(inpt_data))
-    #     # this assignment will fail if stim == 0
-    #     # inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
-    #     inpt_data['success'] = np.asarray(raw_df['success'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
-    #     inpt_data['RT'] = np.asarray(raw_df['RT'].loc[raw_df['mouse_id'] == float(animal)])
-    #     inpt_data['session_identifier'] = np.asarray(
-    #         raw_df['session_identifier'].loc[raw_df['mouse_id'] == float(animal)])
-    #     inpt_data['pstim'] = np.asarray(
-    #         raw_df['prev_freq_trans'].loc[raw_df['mouse_id'] == float(animal)])
-    #     # get binned freqs for psychometrics
-    #     inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
-    #                                           include_lowest=True)
-    #
-    #     inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
-    #
-    # inpt_data_all.to_csv(os.path.join(data_dir, 'om_state_info.csv'))
-    inpt_data_all = pd.read_csv(os.path.join(data_dir,'om_state_info.csv'))
-    inpt_data_all['state_change'] = (inpt_data_all['state']).diff()
-    inpt_data_all.loc[inpt_data_all['state_change'] != 0, 'state_change'] = 1
-    inpt_data_all['state_valid'] = np.ones(len(inpt_data_all))
-    inpt_data_all['state_valid_2'] = np.ones(len(inpt_data_all))
-    index_data = inpt_data_all.index
+    get_opto = 1
+    # this is to get other columns for analysis
+    if get_opto:
+        raw_df = pd.read_csv(os.path.join(data_dir,'opto_om_batch2_processed.csv'))
+        raw_df = raw_df.loc[(raw_df.sound_diff < 37) & (raw_df.sound_diff > 31)].copy().reset_index(drop=True)
+        save_name = 'opto_om_state_info.csv'
+    else:
+        raw_df = pd.read_csv(os.path.join(data_dir, 'om_all_batch1&2&3&4_processed.csv'))
+        save_name = 'om_state_info.csv'
+    # each animal concat
+    inpt_data_all = pd.DataFrame()
+    for animal in animal_list:
+        print(animal)
+
+        results_dir_individual_animal = results_dir_individual / animal
+        cv_file = results_dir_individual_animal / "cvbt_folds_model.npz"
+        cvbt_folds_model = load_cv_arr(cv_file)
+
+        with open(results_dir_individual_animal / "best_init_cvbt_dict.json", 'r') as f:
+            best_init_cvbt_dict = json.load(f)
+
+        # prepare data for state inference
+        inpt, y, session = load_data(data_individual / (animal + '_processed.npz'))
+        violation_idx = np.where(y == -1)[0]
+        nonviolation_idx, mask = create_violation_mask(violation_idx,
+                                                       inpt.shape[0])
+        y[np.where(y == -1), :] = 1
+        inputs, datas, train_masks = partition_data_by_session(
+            np.hstack((inpt, np.ones((len(inpt), 1)))), y, mask, session)
+
+        # prepare data for dataframe
+        inpt_unnorm, _, _ = load_data(data_individual / (animal + '_unnormalized.npz'))
+        inpt_unnorm = np.append(inpt_unnorm, np.ones(inpt_unnorm.shape[0]).reshape(-1, 1), axis=1)
+        inpt_data = pd.DataFrame(data=inpt_unnorm, columns=labels_for_plot)
+        inpt_data['choice'] = y
+
+        # add info columns
+        inpt_data['mouse_id'] = np.ones(len(inpt_data)) * int(float(animal))
+        # transform choice (one-hot encoding) to convenient encoding to create success colum
+        inpt_data['choice_trans'] = inpt_data['choice'].map({1: 1, 0: -1})
+        # inpt_data['success'] = np.zeros(len(inpt_data))
+        # this assignment will fail if stim == 0
+        # inpt_data['success'] = np.where(inpt_data['choice_trans'] * inpt_data['stim'] < 0, 1, 0)
+        inpt_data['success'] = np.asarray(raw_df['success'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
+        inpt_data['pfail'] = np.asarray(raw_df['prev_failure'].loc[raw_df['mouse_id'] == float(animal)]).astype(int)
+        inpt_data['RT'] = np.asarray(raw_df['RT'].loc[raw_df['mouse_id'] == float(animal)])
+        # or this inpt_data['session_arr'] = session
+        inpt_data['session_identifier'] = np.asarray(
+            raw_df['session_identifier'].loc[raw_df['mouse_id'] == float(animal)])
+        inpt_data['pstim'] = np.asarray(
+            raw_df['prev_freq_trans'].loc[raw_df['mouse_id'] == float(animal)])
+        # get binned freqs for psychometrics
+        if get_opto:
+            inpt_data["binned_freq"] = inpt_data["stim"].copy()
+        else:
+            inpt_data["binned_freq"] = pd.cut(inpt_data['stim'], bins=bin_lst, labels=[str(x) for x in bin_name],
+                                              include_lowest=True)
+
+        # get state inference
+        posterior_probs_pd = pd.DataFrame()
+        for K in [3,4]:
+            # Get the file name corresponding to the best initialization for given K value
+            raw_file = get_file_name_for_best_model_fold(cvbt_folds_model, K,
+                                                         results_dir_individual_animal,
+                                                         best_init_cvbt_dict)
+            hmm_params, lls = load_glmhmm_data(raw_file)
+
+            # Save parameters for initializing individual fits
+            weight_vectors = -hmm_params[2]
+            log_transition_matrix = hmm_params[1][0]
+            init_state_dist = hmm_params[0][0]
+
+            # get posterior probs for state inference
+            posterior_probs = get_marginal_posterior(inputs, datas, train_masks,
+                                                     hmm_params, K, range(K))
+            states_max_posterior = np.argmax(posterior_probs, axis=1)
+            # add state prob information
+            posterior_probs_pd_tmp = pd.DataFrame(posterior_probs)
+            dict_K_name = {0: 'K' + str(K) + '_state_0', 1: 'K' + str(K) + '_state_1', 2: 'K' + str(K) + '_state_2',
+                           3: 'K' + str(K) + '_state_3'}
+            dict_current_K = {k: dict_K_name[k] for k in sorted(dict_K_name.keys())[:K]}
+            posterior_probs_pd_tmp.rename(columns=dict_current_K, inplace=True)
+            # state with max prob
+            posterior_probs_pd_tmp['K' + str(K) + '_state'] = states_max_posterior
+            # location of state change
+            posterior_probs_pd_tmp['K' + str(K) + '_state_change'] = (posterior_probs_pd_tmp['K' + str(K) + '_state']).diff()
+            posterior_probs_pd_tmp.loc[
+                posterior_probs_pd_tmp['K' + str(K) + '_state_change'] != 0, 'K' + str(K) + '_state_change'] = 1
+
+            posterior_probs_pd = pd.concat((posterior_probs_pd,posterior_probs_pd_tmp),axis=1)
+
+        # concat state inference to individual animal dataframe
+        inpt_data = pd.concat((inpt_data,posterior_probs_pd),axis=1)
+        # concat individual animal to all animals
+        inpt_data_all = pd.concat([inpt_data_all,inpt_data],ignore_index=True)
+        del inpt_data, posterior_probs_pd
+
+    inpt_data_all.to_csv(os.path.join(data_dir, save_name))
+    # inpt_data_all = pd.read_csv(os.path.join(data_dir,'om_state_info.csv'))
+    # inpt_data_all['state_valid'] = np.ones(len(inpt_data_all))
+    # inpt_data_all['state_valid_2'] = np.ones(len(inpt_data_all))
+    # index_data = inpt_data_all.index
     # these animals are with non-sticky state changes
     # https://www.biorxiv.org/content/10.1101/2024.02.13.580224v1.full
     # try to see the nature of rapid state switching before eliminating it
