@@ -7,6 +7,7 @@ import pandas as pd
 from collections import Counter
 # sys.path.append('.')
 import matplotlib.pyplot as plt
+import matplotlib
 # from scipy.stats import sem
 # import seaborn as sns
 # from plotting_utils import load_glmhmm_data, load_cv_arr, load_data, \
@@ -21,6 +22,25 @@ def sigmoid(x, L ,x0, k, b):
     y = L / (1 + np.exp(-k*(x-x0))) + b
     return (y)
 
+### FIGURE SETTINGS
+plt.rc('axes', titlesize=18)     # fontsize of the axes title
+plt.rc('axes', labelsize=14)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=13)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=13)    # fontsize of the tick labels
+plt.rc('legend', fontsize=13)    # legend fontsize
+plt.rc('font', size=13)          # controls default text sizes
+# plt.rc('axes.spines', top = False, right = False) #equivalent to sns.despine(top = True)
+matplotlib.rcParams['svg.fonttype'] = 'none'
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+matplotlib.rcParams['font.family'] = 'Arial'
+matplotlib.rcParams['figure.titlesize'] = 'large'
+
+def plot_save_function(fig, name_plot, save_folder):
+    fig.savefig(os.path.join(str(save_folder), name_plot + '.png'), format='png',
+                bbox_inches="tight")
+    fig.savefig(os.path.join(str(save_folder), name_plot + '.svg'), format='svg',
+                bbox_inches="tight")
 ######################### PARAMS ####################################################
 # NOTES:
 # individual glmhmm are initialized by permuted global glmhmm weights, so there needs not be permutation params for plotting
@@ -92,11 +112,17 @@ if individual_animals:
 if exploratory_plot:
     if get_opto:
         opto_name = 'opto_'
+        chpt_prefix = 'chpt_4_'
+        inpt_data_all = pd.read_csv(os.path.join(data_dir, opto_name + 'om_state_info.csv'))
+        inpt_data_all = inpt_data_all.loc[inpt_data_all['mouse_id'] > 41].copy().reset_index(drop=True)
+        index_data = inpt_data_all.index
     else:
         opto_name = ''
+        chpt_prefix = 'chpt_3_'
+        inpt_data_all = pd.read_csv(os.path.join(data_dir, opto_name + 'om_state_info.csv'))
+        index_data = inpt_data_all.index
 
-    inpt_data_all = pd.read_csv(os.path.join(data_dir,opto_name + 'om_state_info.csv'))
-    index_data = inpt_data_all.index
+
     # now mark session start
     inpt_data_all['session'] = inpt_data_all['session_identifier'].str.split('s', expand=True)[1].astype(float)
     inpt_data_all['session_start'] = inpt_data_all.session.diff()
@@ -187,7 +213,7 @@ if exploratory_plot:
     # PROCESSED state change index diff
         ## get state duration
     if K == 3:
-        state_label = ['LowF-bias', 'HighF-bias', 'Engaged']
+        state_label = ['LowF', 'HighF', 'wP']
     else:
         state_label = ['Disengaged', 'HighF-bias','LowF-bias', 'Engaged']
     # get indices of state change
@@ -225,7 +251,7 @@ if exploratory_plot:
         data = np.array(list(results.values()))
 
 
-        fig, ax = plt.subplots(1,2,figsize=(14, 12))
+        fig, ax = plt.subplots(1,2,figsize=(12, 10))
         ax[0].invert_yaxis()
         # ax[0].xaxis.set_visible(False)
         ax[0].set_xlim(0, 100)
@@ -259,8 +285,9 @@ if exploratory_plot:
     state_dict = state_fraction.set_index('mouse_id').T.to_dict('list')
 
     fig,ax, category_colors=survey(state_dict, state_label, cols)
+    ax[0].set_yticks([])
     ax[0].spines['right'].set_visible(False); ax[0].spines['top'].set_visible(False)
-    ax[0].set_xlabel('Percentage of states across mice', fontsize=14);
+    ax[0].set_xlabel('Percentage of states across mice');
     # state transition per sess
     state_transition = state_first.groupby(['mouse_id'])['session_identifier'].value_counts().reset_index()
     state_transition_median = state_transition.groupby('mouse_id')['count'].median().reset_index()
@@ -270,13 +297,16 @@ if exploratory_plot:
     ax[1].scatter(state_transition['count'], state_transition['mouse_id'], alpha=0.2, label='individual session')
     ax[1].scatter(state_transition_median['count'], state_transition_median['mouse_id'], color='yellow', edgecolor='k', label='median per mouse')
     ax[1].axvline(x=state_transition_median['count'].median(),linewidth=1,linestyle='--',label='median all')
-    ax[1].set_xlabel('Transitions per session', fontsize=14)
-    ax[1].legend(loc="lower left", fontsize=14)
+    ax[1].set_xlabel('Transitions per session')
+    ax[1].legend(loc="lower left")
     ax[1].spines['left'].set_visible(False); ax[1].spines['top'].set_visible(False)
     ax[1].set_yticks([])
     ax[1].xaxis.set_inverted(True); ax[1].yaxis.set_inverted(True); fig.tight_layout(); fig.show()
-    fig.suptitle('State dominance and transitions per mouse', fontsize=14)
-    fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_transitions_per_sess_PROCESSED.png'),format='png', bbox_inches="tight")
+    fig.suptitle('State dominance and transitions per mouse')
+    name_fig = chpt_prefix + opto_name + 'K' + str(K) + '_transitions_per_sess_PROCESSED'
+    plot_save_function(fig,name_fig,save_folder)
+    # fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_transitions_per_sess_PROCESSED.png'),format='png', bbox_inches="tight")
+    del fig, name_fig
 
     ## state duration hist
     fig, ax = plt.subplots(1,len(state_label),figsize=(9,4),sharey=True)
@@ -295,14 +325,17 @@ if exploratory_plot:
     ax[0].set_ylabel('Counts')
     fig.suptitle('Distribution of state dwell times')
     fig.tight_layout(); fig.show()
-    fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_state_dwell_times_PROCESSED.png'),format='png', bbox_inches="tight")
-
+    name_fig = chpt_prefix + opto_name + 'K' + str(K) + '_state_dwell_times_PROCESSED'
+    plot_save_function(fig,name_fig,save_folder)
+    # fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_state_dwell_times_PROCESSED.png'),format='png', bbox_inches="tight")
+    del fig, name_fig
 
 
     # plot histogram of state probability diff
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.hist(inpt_data_all['K' + str(K) + '_diff'], bins=30, alpha=0.2,edgecolor='black');
-    ax.set_ylabel('Counts'); ax.set_xlabel('Difference in posterior probabilities between states', fontsize=14)
+    ax.set_yticks([])
+    ax.set_ylabel('Counts'); ax.set_xlabel('Difference in posterior probabilities between states')
     fig.suptitle('Segregation between the most likely state and the next')
     # ax.set_yscale("log");plt.minorticks_off()
     ax.spines['right'].set_visible(False); ax.spines['top'].set_visible(False)
@@ -312,8 +345,11 @@ if exploratory_plot:
     ax2.hist(inpt_data_all.loc[inpt_data_all.K3_diff<= 0.2, 'K' + str(K) + '_diff'], bins=30,alpha=0.2, edgecolor='black')
 
     ax2.spines['right'].set_visible(False);ax2.spines['top'].set_visible(False)
-    fig.tight_layout();fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_state_difference.png'),format='png', bbox_inches="tight")
-
+    fig.tight_layout();
+    name_fig = chpt_prefix + opto_name + 'K' + str(K) + '_state_difference'
+    plot_save_function(fig,name_fig,save_folder)
+    # fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_state_difference.png'),format='png', bbox_inches="tight")
+    del fig, name_fig
     # plot transitons into and out of
     # K = 3
     n_trials = 3
@@ -451,6 +487,148 @@ if exploratory_plot:
             ax.set_ylim([-0.01, 1.01])
             ax.set_xlim([-0.1, n_trials * 2 - .9])
     fig.savefig(save_folder/(opto_name + 'K' + str(K) + '_transition_into_out_matrix.png'), format='png', bbox_inches="tight")
+    plt.show()
+
+
+    import scipy
+    ############ compare median rt among states
+    data_rt_all = inpt_data_all.groupby(['mouse_id', 'K3_state_processed'])['RT'].median().reset_index()
+    for state_no in range(K):
+        if state_no == K-1:
+            second_val = 0
+        else:
+            second_val = state_no + 1
+        p = scipy.stats.wilcoxon(data_rt_all.loc[(data_rt_all.K3_state_processed == state_no), 'RT'].values,
+                                 data_rt_all.loc[(data_rt_all.K3_state_processed == second_val), 'RT'].values)
+        print(p)
+
+    ############ segregate data based on training state (tertile)
+    session_tertile = []
+    mouse_id_lst = inpt_data_all.mouse_id.unique()
+    for mouse_no in range(len(mouse_id_lst)):
+        data_tmp = inpt_data_all.loc[inpt_data_all.mouse_id == mouse_id_lst[mouse_no]].copy().reset_index(drop=True)
+        session_tmp_lst = list(pd.qcut(pd.Series(np.arange(len(data_tmp))), 3, labels=[0, 1, 2]).astype('float'))
+        session_tertile.extend(session_tmp_lst)
+    inpt_data_all['session_tertile'] = session_tertile
+
+    # state transition fraction across tertile
+    state_change_frac = inpt_data_all.groupby(['mouse_id', 'session_tertile'])[
+        'K3_state_change_processed'].value_counts(normalize=True).unstack('K3_state_change_processed').reset_index()
+    # no difference in state change frequency across training
+    for state_no in range(K):
+        if state_no == K - 1:
+            second_val = 0
+        else:
+            second_val = state_no + 1
+        p = scipy.stats.wilcoxon(state_change_frac.loc[state_change_frac.session_tertile==state_no, 1].values,
+                                 state_change_frac.loc[state_change_frac.session_tertile==second_val, 1].values)
+        print(p)
+    # occupancy fraction across tertile
+    occupancy_frac = inpt_data_all.groupby(['mouse_id', 'session_tertile'])['K3_state_processed'].value_counts(
+        normalize=True).unstack('K3_state_processed').reset_index()
+    occupancy_frac.fillna(0,inplace=True)
+    occupancy_frac_melt = pd.melt(occupancy_frac, id_vars=['mouse_id', 'session_tertile'], value_vars=[0, 1, 2])
+    del occupancy_frac
+
+    # plot occupancy fraction
+    mouse_id_lst = occupancy_frac_melt.mouse_id.unique()
+    plot_lst = ['K3_state_processed','session_tertile']
+    title_lst = ['state_', 'tertile_']
+    x_label = ['tertile', 'state']
+    for plot_var_id in range(len(plot_lst)):
+        fig, ax = plt.subplots(1, 3, figsize=(16, 6), sharey=True)
+        for tertile_id in range(3):
+            for mouse_no in mouse_id_lst:
+                ax[tertile_id].plot(np.arange(3) +0.5,
+                                    occupancy_frac_melt.loc[(occupancy_frac_melt[plot_lst[plot_var_id]] == tertile_id) &
+                                                            (occupancy_frac_melt.mouse_id == mouse_no), 'value'].values,
+                                    'k-o')
+            ax[tertile_id].set_xticks(np.arange(3)+0.5, ['0', '1', '2'])
+            ax[tertile_id].spines[['top','right']].set_visible(False)
+            ax[tertile_id].set_title(title_lst[plot_var_id] + str(tertile_id))
+            ax[tertile_id].set_xlabel(x_label[plot_var_id])
+    plt.show()
+
+    # no difference in fraction occupancy within state across training (similar amount of bias from the begining till end)
+    for state_no in range(K):
+        print(state_no)
+        for tertile_no in range(3):
+            if tertile_no == K-1:
+                second_val = 0
+            else:
+                second_val = tertile_no + 1
+            p = scipy.stats.wilcoxon(occupancy_frac_melt.loc[(occupancy_frac_melt.K3_state_processed == state_no) &
+                                                             (occupancy_frac_melt.session_tertile == tertile_no), 'value'].values,
+                                     occupancy_frac_melt.loc[(occupancy_frac_melt.K3_state_processed == state_no) &
+                                                             (occupancy_frac_melt.session_tertile == second_val), 'value'].values)
+            print(p)
+
+    # significant difference in the occupancy of wP state vs bias states across training (wP state almost always occupied more)
+    for tertile_no in range(K):
+        print(tertile_no)
+        for state_no in range(3):
+            if state_no == K-1:
+                second_val = 0
+            else:
+                second_val = state_no + 1
+            p = scipy.stats.wilcoxon(occupancy_frac_melt.loc[(occupancy_frac_melt.K3_state_processed == state_no) &
+                                                             (occupancy_frac_melt.session_tertile == tertile_no), 'value'].values,
+                                     occupancy_frac_melt.loc[(occupancy_frac_melt.K3_state_processed == second_val) &
+                                                             (occupancy_frac_melt.session_tertile == tertile_no), 'value'].values)
+            print(p)
+
+    ####### within-session dynamics
+    session_lst = inpt_data_all.session_identifier.unique()
+    trial_no_lst = []
+    tertile_lst = []
+    for session_no in range(len(session_lst)):
+        # get indices for that session
+        session_tmp = list(index_data[(inpt_data_all.session_identifier == session_lst[session_no])])
+        # relabel trial from 1 to n
+        alternative_sess = np.arange(len(session_tmp))
+        tertile_tmp = list(pd.qcut(pd.Series(alternative_sess), 3, labels=[0, 1, 2]).astype('float'))
+        trial_no_lst.extend(alternative_sess)
+        tertile_lst.extend(tertile_tmp)
+    inpt_data_all['trial_no'] = np.array(trial_no_lst)
+    inpt_data_all['within_session_tertile'] = np.array(tertile_lst)
+
+
+    # transition frequencies within a session
+    state_change_frac_within = inpt_data_all.loc[inpt_data_all.session_start!=1].groupby(
+        ['mouse_id','within_session_tertile'])['K3_state_change_processed'].value_counts(normalize=True).unstack('K3_state_change_processed').reset_index()
+    fig, ax = plt.subplots()
+    for mouse_no in mouse_id_lst:
+        ax.plot(np.arange(3), state_change_frac_within.loc[state_change_frac_within.mouse_id == mouse_no, 1], 'k-o')
+    plt.show()
+    # significant difference in the first and last tertile
+    for state_no in range(K):
+        if state_no == K - 1:
+            second_val = 0
+        else:
+            second_val = state_no + 1
+        p = scipy.stats.wilcoxon(
+            state_change_frac_within.loc[state_change_frac_within.within_session_tertile == state_no, 1].values,
+            state_change_frac_within.loc[state_change_frac_within.within_session_tertile == second_val, 1].values)
+        print(p)
+
+    state_occupy_within = inpt_data_all.groupby(
+        ['mouse_id', 'within_session_tertile'])['K3_state_processed'].value_counts(normalize=True).reset_index()
+
+    plot_lst = ['K3_state_processed', 'within_session_tertile']
+    title_lst = ['state_', 'tertile_']
+    x_label = ['tertile', 'state']
+    for plot_var_id in range(len(plot_lst)):
+        fig, ax = plt.subplots(1, 3, figsize=(16, 6), sharey=True)
+        for tertile_id in range(3):
+            for mouse_no in mouse_id_lst:
+                ax[tertile_id].plot(np.arange(3) + 0.5,
+                                    state_occupy_within.loc[(state_occupy_within[plot_lst[plot_var_id]] == tertile_id) &
+                                                            (state_occupy_within.mouse_id == mouse_no), 'proportion'].values,
+                                    'k-o')
+            ax[tertile_id].set_xticks(np.arange(3) + 0.5, ['0', '1', '2'])
+            ax[tertile_id].spines[['top', 'right']].set_visible(False)
+            ax[tertile_id].set_title(title_lst[plot_var_id] + str(tertile_id))
+            ax[tertile_id].set_xlabel(x_label[plot_var_id])
     plt.show()
 
     # #### plot psychometrics based on states
